@@ -16,6 +16,9 @@ const uploadRouter = require('./routes/upLoadRouters')
 const SurfaceTreatmentRouter = require('./routes/surfaceTreatmentRouter')
 const processSettingRouter = require('./routes/ProcessSettingRouters')
 const salesQuoteRouter = require('./routes/salesQuoteRouters.JS')
+const InboundRouter = require('./routes/InboundRouters')
+
+
 
 const app = express()
 
@@ -53,6 +56,9 @@ app.use('/api', uploadRouter) // // 使用路由
 app.use('/api/surfaceTreatment', SurfaceTreatmentRouter) // // 使用路由
 app.use('/api/processSetting', processSettingRouter) // // 使用路由
 app.use('/api/salesQuote', salesQuoteRouter) // // 使用路由
+app.use('/api/inbounds', InboundRouter) // // 使用路由
+app.use('/api/inventory', require('./routes/inventoryRouters'))
+app.use('/api/outbounds', require('./routes/OutboundRouters'))
 
 // 解析错误中间件
 // eslint-disable-next-line space-before-function-paren

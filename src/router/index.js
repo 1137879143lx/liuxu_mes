@@ -383,12 +383,32 @@ export const constantRoutes = [
       roles: ['admin', 'editor'] // you can set roles in root nav
     },
     children: [
+
+      {
+        path: 'ruku',
+        component: () => import('@/views/cangku/ruku/index'),
+        name: 'ruku',
+        meta: { title: '入库', icon: 'documentation', affix: true }
+      },
+      {
+        path: 'jishikucun',
+        component: () => import('@/views/cangku/jishikucun/index'),
+        name: 'jishikucun',
+        meta: { title: '及时库存', icon: 'documentation', affix: true }
+      },
+      {
+        path: 'chuku',
+        component: () => import('@/views/cangku/chuku/index'),
+        name: 'chuku',
+        meta: { title: '出库', icon: 'documentation', affix: true }
+      },
       {
         path: 'saomaruku',
         component: () => import('@/views/cangku/saomaruku/index'),
         name: 'saomaruku',
-        meta: { title: '扫码入库', icon: 'documentation', affix: true }
-      }
+        meta: { title: '物料标识卡', icon: 'documentation', affix: true }
+      },
+
     ]
   }
   // ,

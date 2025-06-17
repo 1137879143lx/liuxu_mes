@@ -1,5 +1,5 @@
 // 导出地址
 
 export default {
-  baseUrl: 'http://127.0.0.1:3333'
+  baseUrl: '192.168.10.35:3333'
 }
