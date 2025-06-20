@@ -395,9 +395,22 @@ router.put('/:id/confirm', async (req, res) => {
             }
         }
 
-        // 更新库存
+        // 更新库存并记录交易记录
+        const InventoryTransaction = require('../models/inventoryTransactionModel')
+
         try {
             for (const material of outbound.materials) {
+                // 获取当前库存信息
+                const inventory = await Inventory.findOne({
+                    materialCode: material.materialCode,
+                    warehouse: outbound.warehouse,
+                    enable_flag: 'Y'
+                })
+
+                const stockBefore = inventory.currentStock
+                const stockAfter = stockBefore - material.actualQuantity
+
+                // 更新库存
                 await Inventory.findOneAndUpdate(
                     {
                         materialCode: material.materialCode,
@@ -409,6 +422,25 @@ router.put('/:id/confirm', async (req, res) => {
                         lastUpdateTime: new Date(Date.now() + 60 * 60 * 8 * 1000)
                     }
                 )
+
+                // 记录出库交易记录
+                const transaction = new InventoryTransaction({
+                    materialCode: material.materialCode,
+                    materialName: material.materialName,
+                    warehouse: outbound.warehouse,
+                    transactionType: 'out',
+                    businessType: outbound.outboundType,
+                    quantity: -material.actualQuantity, // 负数表示减少
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    reason: `${getOutboundBusinessTypeText(outbound.outboundType)}出库`,
+                    operator: outbound.operator,
+                    operatorId: outbound.operatorId,
+                    referenceNo: outbound.outboundNo,
+                    remark: `出库单号：${outbound.outboundNo}，申请部门：${outbound.department}`
+                })
+
+                await transaction.save()
             }
         } catch (inventoryError) {
             console.error('更新库存失败:', inventoryError)
@@ -440,6 +472,18 @@ router.put('/:id/confirm', async (req, res) => {
         })
     }
 })
+
+// 工具函数：获取出库业务类型文本
+function getOutboundBusinessTypeText(businessType) {
+    const typeMap = {
+        production: '生产领料',
+        sale: '销售',
+        transfer: '调拨',
+        return: '退货',
+        scrap: '报废'
+    }
+    return typeMap[businessType] || businessType
+}
 
 // 取消出库单
 router.put('/:id/cancel', async (req, res) => {

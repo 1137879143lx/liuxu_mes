@@ -17,6 +17,9 @@ const inventorySchema = new mongoose.Schema({
     specification: {
         type: String
     }, // 规格型号
+    version: {
+        type: String
+    }, // 版本
     unit: {
         type: String,
         required: [true, '单位不能为空']

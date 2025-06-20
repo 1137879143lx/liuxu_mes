@@ -394,7 +394,7 @@ export const constantRoutes = [
         path: 'jishikucun',
         component: () => import('@/views/cangku/jishikucun/index'),
         name: 'jishikucun',
-        meta: { title: '及时库存', icon: 'documentation', affix: true }
+        meta: { title: '即时库存', icon: 'documentation', affix: true }
       },
       {
         path: 'chuku',

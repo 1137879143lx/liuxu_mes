@@ -16,6 +16,9 @@ const inboundMaterialSchema = new mongoose.Schema({
     specification: {
         type: String
     }, // 规格型号
+    version: {
+        type: String
+    }, // 版本
     unit: {
         type: String,
         required: [true, '单位不能为空']
@@ -54,6 +57,7 @@ const inboundSchema = new mongoose.Schema({
         enum: ['purchase', 'production', 'return', 'transfer'], // 采购入库、生产入库、退货入库、调拨入库
         default: 'purchase'
     }, // 入库类型
+
     supplier: {
         type: String,
         required: [true, '供应商不能为空']

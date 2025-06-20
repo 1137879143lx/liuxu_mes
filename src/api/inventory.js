@@ -12,7 +12,7 @@ export function fetchInventoryList(query) {
 // 获取库存统计
 export function fetchInventoryStatistics(query) {
     return request({
-        url: 'api/inventory/statistics',
+        url: 'api/inventory/stats/summary',
         method: 'get',
         params: query
     })
@@ -42,5 +42,24 @@ export function updateInventoryFromInbound(data) {
         url: 'api/inventory/update-from-inbound',
         method: 'post',
         data
+    })
+}
+
+export function importInventory(data) {
+    return request({
+        url: '/api/inventory/import',
+        method: 'post',
+        data: {
+            items: data
+        }
+    })
+}
+
+// 导出库存数据
+export function exportInventory(params) {
+    return request({
+        url: '/api/inventory/export',
+        method: 'get',
+        params
     })
 }

@@ -302,6 +302,7 @@ router.put('/:id/confirm', async (req, res) => {
 
         // 更新库存 - 使用事务确保数据一致性
         const Inventory = require('../models/inventorySchema')
+        const InventoryTransaction = require('../models/inventoryTransactionModel')
 
         try {
             // 串行处理每个物料，避免并发问题
@@ -323,10 +324,16 @@ router.put('/:id/confirm', async (req, res) => {
                     enable_flag: 'Y'
                 })
 
+                let stockBefore = 0
+                let stockAfter = 0
+
                 if (inventory) {
                     // 如果存在，增加库存
-                    console.log(`更新现有库存: ${inventory.currentStock} + ${quantity}`)
-                    inventory.currentStock += Number(quantity)
+                    stockBefore = inventory.currentStock
+                    stockAfter = stockBefore + Number(quantity)
+
+                    console.log(`更新现有库存: ${stockBefore} + ${quantity} = ${stockAfter}`)
+                    inventory.currentStock = stockAfter
                     inventory.lastUpdateTime = new Date(Date.now() + 60 * 60 * 8 * 1000)
 
                     // 更新物料信息（可能有变化）
@@ -340,6 +347,9 @@ router.put('/:id/confirm', async (req, res) => {
                     console.log(`库存更新成功: ${inventory.materialCode}, 新库存: ${inventory.currentStock}`)
                 } else {
                     // 如果不存在，创建新记录
+                    stockBefore = 0
+                    stockAfter = Number(quantity)
+
                     console.log(`创建新库存记录: ${materialCode}`)
                     inventory = new Inventory({
                         materialCode: materialCode,
@@ -348,7 +358,7 @@ router.put('/:id/confirm', async (req, res) => {
                         unit: unit,
                         warehouse: inbound.warehouse,
                         warehouseCode: inbound.warehouseCode || '',
-                        currentStock: Number(quantity),
+                        currentStock: stockAfter,
                         safetyStock: 10, // 默认安全库存
                         maxStock: 1000, // 默认最大库存
                         lastUpdateTime: new Date(Date.now() + 60 * 60 * 8 * 1000)
@@ -357,6 +367,26 @@ router.put('/:id/confirm', async (req, res) => {
                     await inventory.save()
                     console.log(`新库存记录创建成功: ${inventory.materialCode}, 库存: ${inventory.currentStock}`)
                 }
+
+                // 记录入库交易记录
+                const transaction = new InventoryTransaction({
+                    materialCode: materialCode,
+                    materialName: materialName,
+                    warehouse: inbound.warehouse,
+                    transactionType: 'in',
+                    businessType: inbound.inboundType,
+                    quantity: Number(quantity),
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    reason: `${getBusinessTypeText(inbound.inboundType)}入库`,
+                    operator: inbound.operator,
+                    operatorId: inbound.operatorId,
+                    referenceNo: inbound.inboundNo,
+                    remark: `入库单号：${inbound.inboundNo}，供应商：${inbound.supplier}`
+                })
+
+                await transaction.save()
+                console.log(`入库交易记录创建成功: ${materialCode}`)
             }
 
             // 库存更新成功后，更新入库单状态
@@ -399,6 +429,17 @@ router.put('/:id/confirm', async (req, res) => {
         })
     }
 })
+
+// 工具函数：获取业务类型文本
+function getBusinessTypeText(businessType) {
+    const typeMap = {
+        purchase: '采购',
+        production: '生产',
+        return: '退货',
+        transfer: '调拨'
+    }
+    return typeMap[businessType] || businessType
+}
 
 // 取消入库单
 router.put('/:id/cancel', async (req, res) => {
