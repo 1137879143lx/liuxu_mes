@@ -97,13 +97,23 @@
 
         <el-table-column prop="reason" label="申请原因" min-width="200" show-overflow-tooltip />
 
-        <el-table-column label="操作" width="200" fixed="right" align="center">
+        <!-- 表格操作列 -->
+        <el-table-column label="操作" width="220" fixed="right" align="center">
           <template slot-scope="scope">
             <el-button size="mini" type="primary" @click="viewDetail(scope.row)">详情</el-button>
+
+            <!-- 只有待审核状态才能编辑 -->
             <el-button v-if="scope.row.applicationStatus === 'pending'" size="mini" type="warning" @click="editRequest(scope.row)">编辑</el-button>
+
+            <!-- 只有已审核通过且未转换的才能转采购单 -->
             <el-button v-if="scope.row.applicationStatus === 'approved'" size="mini" type="success" @click="convertToPurchase(scope.row)">
               转采购单
             </el-button>
+
+            <!-- 已转采购状态显示提示 -->
+            <el-tag v-if="scope.row.applicationStatus === 'converted'" size="mini" type="info">已转采购</el-tag>
+
+            <!-- 只有待审核状态才能删除 -->
             <el-button v-if="scope.row.applicationStatus === 'pending'" size="mini" type="danger" @click="deleteRequest(scope.row)">删除</el-button>
           </template>
         </el-table-column>
@@ -144,11 +154,11 @@
             <el-col :span="8">
               <el-form-item label="申请部门" prop="department">
                 <el-select v-model="requestForm.department" placeholder="请选择申请部门" style="width: 100%">
-                  <el-option label="机加部" value="production" />
-                  <!-- <el-option label="技术部" value="technology" />
-                  <el-option label="质量部" value="quality" />
-                  <el-option label="仓储部" value="warehouse" />
-                  <el-option label="行政部" value="admin" /> -->
+                  <el-option label="机加部" value="机加部" />
+                  <el-option label="技术部" value="技术部" />
+                  <el-option label="质量部" value="质量部" />
+                  <el-option label="仓储部" value="仓储部" />
+                  <el-option label="行政部" value="行政部" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -308,6 +318,14 @@
                 <el-tag :type="getStatusType(currentDetail.applicationStatus)">
                   {{ getStatusText(currentDetail.applicationStatus) }}
                 </el-tag>
+                <!-- 如果是已转采购状态，显示关联的采购单号 -->
+                <span v-if="currentDetail.applicationStatus === 'converted' && currentDetail.purchaseOrderNo" class="convert-info">
+                  （已转为采购单：
+                  <el-link type="primary" @click="viewPurchaseOrder(currentDetail.purchaseOrderNo)">
+                    {{ currentDetail.purchaseOrderNo }}
+                  </el-link>
+                  ）
+                </span>
               </div>
               <div class="info-item">
                 <label>申请人：</label>
@@ -420,6 +438,29 @@
         </el-button>
       </div>
     </el-dialog>
+
+    <!-- 转换对话框 -->
+    <el-dialog title="转为采购单" :visible.sync="convertDialogVisible" width="500px">
+      <el-form ref="convertForm" :model="convertForm" :rules="convertRules" label-width="100px">
+        <el-form-item label="操作人" prop="operator">
+          <el-input v-model="convertForm.operator" placeholder="请输入操作人" />
+        </el-form-item>
+        <el-form-item label="备注说明">
+          <el-input v-model="convertForm.remark" type="textarea" :rows="3" placeholder="请输入转换说明（可选）" />
+        </el-form-item>
+        <el-alert title="转换说明" type="info" :closable="false" show-icon>
+          <template slot="default">
+            <p>转为采购单后，该申请的状态将变更为"已转采购"，无法再次转换。</p>
+            <p>转换后会自动生成对应的采购单据，包含当前申请的所有物料信息。</p>
+          </template>
+        </el-alert>
+      </el-form>
+
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="cancelConvert">取消</el-button>
+        <el-button type="primary" @click="confirmConvert">确认转换</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -430,7 +471,8 @@ import {
   updatePurchaseRequest,
   deletePurchaseRequest,
   approvePurchaseRequest,
-  rejectPurchaseRequest
+  rejectPurchaseRequest,
+  convertToPurchaseOrder // 添加这个导入
 } from '@/api/purchaseRequest'
 import { fetchMaterialInfo } from '@/api/purchaseRequest'
 
@@ -485,6 +527,14 @@ export default {
       currentDetail: null,
       currentEditIndex: -1,
 
+      // 添加转换对话框控制
+      convertDialogVisible: false,
+      convertForm: {
+        requestId: null,
+        operator: '',
+        remark: ''
+      },
+
       // 表单验证规则
       requestRules: {
         applicant: [{ required: true, message: '请输入申请人', trigger: 'blur' }],
@@ -497,6 +547,10 @@ export default {
 
       approvalRules: {
         comment: [{ required: true, message: '请输入审核意见', trigger: 'blur' }]
+      },
+
+      convertRules: {
+        operator: [{ required: true, message: '请输入操作人', trigger: 'blur' }]
       }
     }
   },
@@ -832,21 +886,80 @@ export default {
       }
     },
 
-    // 转采购单
+    // 转采购单 - 完善实现
     async convertToPurchase(row) {
       try {
-        await this.$confirm('确定要将此申请转为采购单吗？', '确认转换', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'info'
+        // 首先检查状态
+        if (row.applicationStatus !== 'approved') {
+          this.$message.warning('只有已审核通过的申请才能转为采购单')
+          return
+        }
+
+        // 显示转换确认对话框
+        this.convertForm = {
+          requestId: row._id,
+          operator: this.$store.getters.name || '当前用户',
+          remark: ''
+        }
+        this.convertDialogVisible = true
+      } catch (error) {
+        console.error('转换采购单失败:', error)
+        this.$message.error('转换失败：' + error.message)
+      }
+    },
+
+    // 确认转换
+    async confirmConvert() {
+      try {
+        await this.$refs.convertForm.validate()
+
+        // 调用转换API
+        const response = await convertToPurchaseOrder(this.convertForm.requestId, {
+          operator: this.convertForm.operator,
+          operatorId: this.$store.getters.userId || 'user_id',
+          remark: this.convertForm.remark
         })
 
-        // 这里可以跳转到采购单页面或者调用转换API
-        this.$message.success('功能开发中...')
-      } catch (error) {
-        if (error !== 'cancel') {
-          console.error('转换采购单失败:', error)
+        if (response.code === 200) {
+          this.$message.success('转为采购单成功')
+          this.convertDialogVisible = false
+          this.detailDialogVisible = false
+
+          // 更新当前行的状态显示
+          const updatedRow = this.tableData.find((item) => item._id === this.convertForm.requestId)
+          if (updatedRow) {
+            updatedRow.applicationStatus = 'converted'
+          }
+
+          // 重新加载数据以确保状态同步
+          this.loadData()
+
+          // 显示转换成功的通知
+          this.$notify({
+            title: '转换成功',
+            message: `采购申请已成功转为采购单，当前状态：已转采购`,
+            type: 'success',
+            duration: 5000
+          })
+
+          // 可以在这里跳转到采购单页面
+          // this.$router.push('/purchase/order')
+        } else {
+          this.$message.error(response.message || '转换失败')
         }
+      } catch (error) {
+        console.error('转换采购单失败:', error)
+        this.$message.error('转换失败：' + error.message)
+      }
+    },
+
+    // 取消转换
+    cancelConvert() {
+      this.convertDialogVisible = false
+      this.convertForm = {
+        requestId: null,
+        operator: '',
+        remark: ''
       }
     },
 
@@ -976,30 +1089,37 @@ export default {
       return new Date(datetime).toLocaleString()
     },
 
-    // 获取状态类型
-    getStatusType(status) {
-      const typeMap = {
-        pending: 'warning',
-        approved: 'success',
-        rejected: 'danger',
-        converted: 'info',
-        completed: 'success'
-      }
-      return typeMap[status] || ''
-    },
-
-    // 获取状态文本
+    // 获取状态文本 - 确保包含已转采购状态
     getStatusText(status) {
       const textMap = {
         pending: '待审核',
         approved: '已审核',
         rejected: '已驳回',
-        converted: '已转采购',
+        converted: '已转采购', // 确保这个状态存在
         completed: '已完成'
       }
       return textMap[status] || status
     },
 
+    // 获取状态类型 - 为已转采购状态设置合适的颜色
+    getStatusType(status) {
+      const typeMap = {
+        pending: 'warning',
+        approved: 'success',
+        rejected: 'danger',
+        converted: 'info', // 使用蓝色表示已转采购
+        completed: 'success'
+      }
+      return typeMap[status] || ''
+    },
+    // 查看关联的采购订单
+    viewPurchaseOrder(orderNo) {
+      // 跳转到采购订单页面并定位到指定订单
+      this.$router.push({
+        path: '/caigou/caigoudingdan',
+        query: { orderNo: orderNo }
+      })
+    },
     // 获取紧急程度类型
     getUrgencyType(urgency) {
       const typeMap = {
@@ -1187,5 +1307,11 @@ export default {
       }
     }
   }
+}
+
+.convert-info {
+  margin-left: 10px;
+  font-size: 12px;
+  color: #909399;
 }
 </style>

@@ -2,6 +2,8 @@ const express = require('express')
 const router = express.Router()
 const PurchaseRequest = require('../models/purchaseRequestModel')
 const moment = require('moment')
+// 在文件顶部添加采购订单模型的引用
+const PurchaseOrder = require('../models/purchaseOrderModel')
 
 // 获取采购申请列表
 router.get('/', async (req, res) => {
@@ -70,8 +72,7 @@ router.get('/', async (req, res) => {
         })
     }
 })
-
-// 创建采购申请
+// 创建采购申请 - 移除事务
 router.post('/', async (req, res) => {
     try {
         const {
@@ -84,8 +85,43 @@ router.post('/', async (req, res) => {
             items
         } = req.body
 
-        // 生成申请单号
-        const requestNo = await generateRequestNo()
+        // 验证必填字段
+        if (!applicant || !department || !expectedDate || !requestDate || !reason || !items || items.length === 0) {
+            return res.json({
+                code: 400,
+                message: '缺少必填字段或物料清单为空'
+            })
+        }
+
+        // 验证物料数据
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i]
+            if (!item.materialCode || !item.materialName || !item.unit || !item.quantity || item.quantity <= 0) {
+                return res.json({
+                    code: 400,
+                    message: `第${i + 1}个物料信息不完整`
+                })
+            }
+        }
+
+        // 生成申请单号（添加重试机制）
+        let requestNo
+        let retryCount = 0
+        const maxRetries = 3
+
+        while (retryCount < maxRetries) {
+            try {
+                requestNo = await generateRequestNo()
+                break
+            } catch (error) {
+                retryCount++
+                if (retryCount >= maxRetries) {
+                    throw new Error('生成申请单号失败，请稍后重试')
+                }
+                // 等待100ms后重试
+                await new Promise(resolve => setTimeout(resolve, 100))
+            }
+        }
 
         // 计算总金额
         const totalAmount = items.reduce((sum, item) => {
@@ -124,14 +160,23 @@ router.post('/', async (req, res) => {
         })
     } catch (error) {
         console.error('创建采购申请失败:', error)
+
+        let errorMessage = '创建采购申请失败'
+        if (error.message.includes('buffering timed out')) {
+            errorMessage = '数据库连接超时，请检查网络连接后重试'
+        } else if (error.message.includes('duplicate key')) {
+            errorMessage = '申请单号重复，请重新提交'
+        } else if (error.message) {
+            errorMessage = error.message
+        }
+
         res.json({
             code: 500,
-            message: '创建采购申请失败',
+            message: errorMessage,
             error: error.message
         })
     }
 })
-
 // 更新采购申请
 router.put('/:id', async (req, res) => {
     try {
@@ -493,5 +538,138 @@ router.post('/', async (req, res) => {
         await session.endSession()
     }
 })
+
+// 生成采购订单编号的函数
+async function generatePurchaseOrderNo() {
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+    const prefix = `PO${dateStr}`;
+
+    // 查找今天最大的序号
+    const lastOrder = await PurchaseOrder.findOne({
+        orderNo: { $regex: `^${prefix}` }
+    }).sort({ orderNo: -1 });
+
+    let sequence = 1;
+    if (lastOrder) {
+        const lastSequence = parseInt(lastOrder.orderNo.substr(prefix.length));
+        sequence = lastSequence + 1;
+    }
+
+    return `${prefix}${sequence.toString().padStart(3, '0')}`;
+}
+
+
+
+// 转为采购单
+router.put('/:id/convert', async (req, res) => {
+    try {
+        const { operator, operatorId, remark } = req.body
+
+        const request = await PurchaseRequest.findById(req.params.id)
+
+        if (!request || request.enable_flag !== 'Y') {
+            return res.json({
+                code: 404,
+                message: '采购申请不存在'
+            })
+        }
+
+        if (request.applicationStatus !== 'approved') {
+            return res.json({
+                code: 400,
+                message: '只有已审核通过的申请才能转为采购单'
+            })
+        }
+
+        if (request.applicationStatus === 'converted') {
+            return res.json({
+                code: 400,
+                message: '该申请已经转为采购单'
+            })
+        }
+
+        // 生成采购订单编号
+        const orderNo = await generatePurchaseOrderNo()
+
+        // 创建采购订单数据
+        const orderData = {
+            orderNo,
+            supplier: '', // 待填写
+            contact: '', // 待填写
+            contactPhone: '', // 待填写
+            status: 'pending',
+            urgency: request.urgency || 'normal',
+            expectedDate: request.expectedDate,
+            deliveryAddress: '', // 待填写
+
+            // 物料明细从申请转换
+            items: request.materialList.map(item => ({
+                materialCode: item.materialCode,
+                materialName: item.materialName,
+                specification: item.specification,
+                unit: item.unit,
+                quantity: item.quantity,
+                unitPrice: item.estimatedUnitPrice || 0,
+                amount: item.estimatedAmount || 0,
+                remark: item.note || ''
+            })),
+
+            totalAmount: request.totalAmount,
+            orderDate: new Date(),
+            creator: operator || '系统管理员',
+            creatorId: operatorId || 'system',
+
+            // 关联原始申请
+            sourceRequestId: request._id,
+            sourceRequestNo: request.requestNo,
+
+            remark: remark || `由采购申请 ${request.requestNo} 转换而来`
+        }
+
+        // 先创建采购订单
+        const newOrder = new PurchaseOrder(orderData)
+        const savedOrder = await newOrder.save()
+
+        // 再更新申请状态
+        const conversionRecord = {
+            action: 'convert',
+            operator: operator || '系统管理员',
+            operatorId: operatorId || 'system',
+            comment: `转为采购单，订单号：${orderNo}`,
+            createTime: new Date()
+        }
+
+        const updatedRequest = await PurchaseRequest.findByIdAndUpdate(
+            req.params.id,
+            {
+                applicationStatus: 'converted',
+                converter: operator || '系统管理员',
+                convertTime: new Date(),
+                purchaseOrderNo: orderNo,
+                $push: { approvalHistory: conversionRecord }
+            },
+            { new: true }
+        )
+
+        res.json({
+            code: 200,
+            message: '转为采购单成功',
+            data: {
+                request: updatedRequest,
+                order: savedOrder,
+                orderNo: orderNo
+            }
+        })
+    } catch (error) {
+        console.error('转为采购单失败:', error)
+        res.json({
+            code: 500,
+            message: error.message || '转为采购单失败',
+            error: error.message
+        })
+    }
+})
+
 
 module.exports = router

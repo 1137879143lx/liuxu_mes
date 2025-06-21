@@ -101,7 +101,6 @@ const purchaseRequestSchema = new mongoose.Schema({
   department: {
     type: String,
     required: [true, '申请部门不能为空'],
-    enum: ['production', 'technology', 'quality', 'warehouse', 'admin', 'sales', 'finance'],
     index: true
   },
 
@@ -228,6 +227,25 @@ const purchaseRequestSchema = new mongoose.Schema({
     updatedAt: 'updateTime'
   },
   versionKey: false
+  ,
+  // 在模型中添加以下字段（如果还没有的话）
+
+  // 转换信息
+  converter: {
+    type: String,
+    trim: true,
+    maxlength: [50, '转换人姓名不能超过50个字符']
+  },
+  convertTime: {
+    type: Date,
+    index: true
+  },
+  purchaseOrderNo: {
+    type: String,
+    trim: true,
+    maxlength: [50, '采购订单号不能超过50个字符'],
+    index: true
+  }
 })
 
 // 索引设置

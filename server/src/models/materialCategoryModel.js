@@ -1,32 +1,69 @@
 const mongoose = require('mongoose')
-const mongoosePaginate = require('mongoose-paginate-v2')
 const db = require('../config/db')
 
 const materialCategorySchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, '物料类别名称不能为空'],
+    trim: true,
     unique: true
-  }, // 材料类别名称
+  },
+  code: {
+    type: String,
+    required: [true, '物料类别编码不能为空'],
+    trim: true,
+    unique: true,
+    uppercase: true
+  },
   unit: {
     type: String,
-    required: true
-  }, // 单位
+    required: [true, '计量单位不能为空'],
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  status: {
+    type: String,
+    enum: ['启用', '禁用'],
+    default: '启用'
+  },
+  // 编码生成规则
   codeRule: {
     type: String,
-    required: true,
-    unique: true
-  }, // 编码规则
-  createdBy: {
-    type: String
-  }, // 创建者
-  createdAt: {
-    type: Date,
-    default: Date.now
-  } // 创建时间
+    trim: true,
+    default: 'AUTO' // AUTO: 自动生成, MANUAL: 手动输入
+  },
+  // 编码前缀
+  codePrefix: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false
+  }
+}, {
+  timestamps: true,
+  versionKey: false
 })
 
-materialCategorySchema.plugin(mongoosePaginate)
+// 在保存前设置编码前缀
+materialCategorySchema.pre('save', function (next) {
+  if (!this.codePrefix && this.code) {
+    this.codePrefix = this.code
+  }
+  next()
+})
+
+// 创建索引
+materialCategorySchema.index({ name: 1 })
+materialCategorySchema.index({ code: 1 })
+materialCategorySchema.index({ status: 1 })
+materialCategorySchema.index({ isDeleted: 1 })
+
 const MaterialCategory = db.model('MaterialCategory', materialCategorySchema)
 
 module.exports = MaterialCategory

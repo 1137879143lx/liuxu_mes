@@ -8,6 +8,9 @@
             <el-form-item label="物料类型">
               <el-input v-model="MaterialType_Form.name" placeholder="物料类型" />
             </el-form-item>
+            <el-form-item label="类别编码">
+              <el-input v-model="MaterialType_Form.code" placeholder="请输入类别编码" />
+            </el-form-item>
             <el-form-item label="单位">
               <el-input v-model="MaterialType_Form.unit" placeholder="请输入单位" />
             </el-form-item>
@@ -21,6 +24,7 @@
           <el-table :data="MaterialType_tableData" size="mini" height="700">
             <el-table-column label="#" type="index" />
             <el-table-column prop="name" label="物料类型" />
+            <el-table-column prop="code" label="类别编码" />
             <el-table-column prop="unit" label="单位" />
             <el-table-column prop="codeRule" label="编码规则" />
             <el-table-column label="操作">
@@ -31,13 +35,12 @@
           </el-table>
 
           <el-pagination
-            v-if="MaterialType_totalPages > 1"
+            v-if="MaterialType_total > MaterialType_pageSize"
             :current-page="MaterialType_currentPage"
             :page-size="MaterialType_pageSize"
-            :total="MaterialType_totalPages"
+            :total="MaterialType_total"
             small
-            @current-change="MaterialType_handlePageChange"
-          />
+            @current-change="MaterialType_handlePageChange" />
         </el-card>
       </el-tab-pane>
       <el-tab-pane label="表面处理" name="表面处理">
@@ -70,8 +73,7 @@
             :page-size="Surface_Form.limit"
             :total="SurfaceTotal"
             small
-            @current-change="SurfaceTotal_handlePageChange"
-          />
+            @current-change="SurfaceTotal_handlePageChange" />
         </el-card>
       </el-tab-pane>
       <!-- 工序设置 -->
@@ -111,8 +113,7 @@
             :page-size="processForm.limit"
             :total="processTotal"
             small
-            @current-change="handleProcessPageChange"
-          />
+            @current-change="handleProcessPageChange" />
         </el-card>
         <el-dialog :visible.sync="addProcessDialogVisible" title="新增工序设置" width="30%">
           <el-form ref="addProcessForm" :model="addProcessForm" :rules="addProcessFormRules" label-width="100px">
@@ -160,6 +161,7 @@ export default {
       MaterialType_tableData: [],
       MaterialType_Form: {
         name: '',
+        code: '', // 添加类别编码字段
         unit: '',
         codeRule: ''
       },
@@ -204,65 +206,145 @@ export default {
   },
 
   methods: {
-    // /////////////////////  单位 /////////////////////// /
+    // /////////////////////  表面处理 /////////////////////// /
     async Surface_Form_get() {
       const res = await surfaceTreatment.getlist(this.Surface_Form)
       this.SurfaceData = res.data
       this.SurfaceTotal = res.count
     },
     async Surface_Form_add() {
-      // ...
-      await surfaceTreatment.add(this.Surface_Form)
-      this.Surface_Form.name = ''
-      this.Surface_Form.price = ''
-      this.Surface_Form_get()
+      if (!this.Surface_Form.name || !this.Surface_Form.price) {
+        this.$message.warning('请填写完整信息')
+        return
+      }
+      try {
+        await surfaceTreatment.add(this.Surface_Form)
+        this.$message.success('添加成功')
+        this.Surface_Form.name = ''
+        this.Surface_Form.price = ''
+        this.Surface_Form_get()
+      } catch (error) {
+        this.$message.error('添加失败')
+      }
     },
+
     // /////////////////////  物料类型 /////////////////////// /
     async MaterialType_search() {
-      const res = await materialCategory.getlist({
-        name: this.MaterialType_searchName,
-        page: this.MaterialType_currentPage,
-        limit: this.MaterialType_pageSize
-      })
-      this.MaterialType_tableData = res.data
-      this.MaterialType_totalPages = res.count
+      try {
+        const res = await materialCategory.getlist({
+          name: this.MaterialType_searchName,
+          page: this.MaterialType_currentPage,
+          limit: this.MaterialType_pageSize
+        })
+        // 根据后端返回的数据结构调整
+        this.MaterialType_tableData = res.data.list || res.data
+        this.MaterialType_total = res.data.total || res.count
+      } catch (error) {
+        this.$message.error('获取数据失败')
+      }
     },
+
     async MaterialType_add() {
-      // ...
-      await materialCategory.add(this.MaterialType_Form)
-      this.MaterialType_Form.name = ''
-      this.MaterialType_Form.unit = ''
-      this.MaterialType_Form.codeRule = ''
-      this.MaterialType_search()
+      if (!this.MaterialType_Form.name || !this.MaterialType_Form.code) {
+        this.$message.warning('物料类型和类别编码不能为空')
+        return
+      }
+
+      // 检查编码规则是否重复
+      if (this.MaterialType_Form.codeRule) {
+        const existingItem = this.MaterialType_tableData.find((item) => item.codeRule === this.MaterialType_Form.codeRule)
+        if (existingItem) {
+          this.$message.warning(`编码规则 "${this.MaterialType_Form.codeRule}" 已存在，请使用不同的编码规则`)
+          return
+        }
+      }
+
+      try {
+        await materialCategory.add(this.MaterialType_Form)
+        this.$message.success('添加成功')
+        this.MaterialType_Form.name = ''
+        this.MaterialType_Form.code = ''
+        this.MaterialType_Form.unit = ''
+        this.MaterialType_Form.codeRule = ''
+        this.MaterialType_search()
+      } catch (error) {
+        if (error.response && error.response.data && error.response.data.error) {
+          const errorMsg = error.response.data.error
+          if (errorMsg.includes('duplicate key error') && errorMsg.includes('codeRule')) {
+            this.$message.error('编码规则已存在，请使用不同的编码规则')
+          } else if (errorMsg.includes('duplicate key error') && errorMsg.includes('code')) {
+            this.$message.error('类别编码已存在，请使用不同的类别编码')
+          } else {
+            this.$message.error('添加失败：' + error.response.data.message)
+          }
+        } else {
+          this.$message.error('添加失败')
+        }
+      }
     },
 
     async MaterialType_edit(row) {
-      // ...
-      await materialCategory.put(row._id, {
-        name: this.MaterialType_searchName
-      })
+      // 检查编码规则是否与其他记录重复（排除当前记录）
+      if (row.codeRule) {
+        const existingItem = this.MaterialType_tableData.find((item) => item._id !== row._id && item.codeRule === row.codeRule)
+        if (existingItem) {
+          this.$message.warning(`编码规则 "${row.codeRule}" 已存在，请使用不同的编码规则`)
+          return
+        }
+      }
+
+      try {
+        await materialCategory.put(row._id, {
+          name: row.name,
+          code: row.code,
+          unit: row.unit,
+          codeRule: row.codeRule
+        })
+        this.$message.success('修改成功')
+        this.MaterialType_search()
+      } catch (error) {
+        if (error.response && error.response.data && error.response.data.error) {
+          const errorMsg = error.response.data.error
+          if (errorMsg.includes('duplicate key error') && errorMsg.includes('codeRule')) {
+            this.$message.error('编码规则已存在，请使用不同的编码规则')
+          } else if (errorMsg.includes('duplicate key error') && errorMsg.includes('code')) {
+            this.$message.error('类别编码已存在，请使用不同的类别编码')
+          } else {
+            this.$message.error('修改失败：' + error.response.data.message)
+          }
+        } else {
+          this.$message.error('修改失败')
+        }
+      }
     },
+
     async MaterialType_remove(row) {
-      // ...
       const confirmed = await this.$confirm(`确认删除 ${row.name} 吗？`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).catch(() => false)
       if (confirmed) {
-        await materialCategory.deletes(row._id)
-        this.MaterialType_search()
+        try {
+          await materialCategory.deletes(row._id)
+          this.$message.success('删除成功')
+          this.MaterialType_search()
+        } catch (error) {
+          this.$message.error('删除失败')
+        }
       }
     },
+
     MaterialType_handlePageChange(page) {
       this.MaterialType_currentPage = page
-      console.log(this.MaterialType_currentPage)
       this.MaterialType_search()
     },
+
     SurfaceTotal_handlePageChange(page) {
       this.Surface_Form.page = page
       this.Surface_Form_get()
     },
+
     async Surface_Form_remove(row) {
       const confirmed = await this.$confirm(`确认删除 ${row.name} 吗？`, '提示', {
         confirmButtonText: '确定',
@@ -270,74 +352,90 @@ export default {
         type: 'warning'
       }).catch(() => false)
       if (confirmed) {
-        await surfaceTreatment.deletes(row._id)
-        this.Surface_Form_get()
+        try {
+          await surfaceTreatment.deletes(row._id)
+          this.$message.success('删除成功')
+          this.Surface_Form_get()
+        } catch (error) {
+          this.$message.error('删除失败')
+        }
       }
     },
-    // 搜索processSteps
+
+    // 工序设置
     async getProcess() {
-      const res = await processSteps.get(this.processForm)
-      this.processData = res.data
-      this.processTotal = res.count
+      try {
+        const res = await processSteps.get(this.processForm)
+        this.processData = res.data.list || res.data
+        this.processTotal = res.data.total || res.count
+      } catch (error) {
+        this.$message.error('获取工序数据失败')
+      }
     },
+
     showAddProcessDialogS() {
       this.addProcessDialogVisible = true
-      this.addProcessForm._id = ''
+      // 重置表单
+      this.addProcessForm = {
+        name: '',
+        code: '',
+        resourceGroup: '',
+        price: '',
+        isOutsourced: false,
+        isInspected: true
+      }
     },
+
     async addProcess() {
       try {
         await this.$refs.addProcessForm.validate()
-        // Add new process setting
-        // eslint-disable-next-line no-empty
         if (this.addProcessForm._id) {
-          // Edit process setting
-          processSteps.update(this.addProcessForm._id, this.addProcessForm).then((res) => {
-            console.log(res)
-            this.addProcessDialogVisible = false
-            this.getProcess()
-          })
+          // 编辑工序
+          await processSteps.update(this.addProcessForm._id, this.addProcessForm)
+          this.$message.success('修改成功')
         } else {
-          processSteps.add(this.addProcessForm).then((res) => {
-            console.log(res)
-            this.addProcessDialogVisible = false
-            this.getProcess()
-            this.addProcessForm._id = ''
-          })
+          // 新增工序
+          await processSteps.add(this.addProcessForm)
+          this.$message.success('添加成功')
         }
-      } catch (err) {
-        console.error(err)
+        this.addProcessDialogVisible = false
+        this.getProcess()
+      } catch (error) {
+        this.$message.error('操作失败')
       }
     },
+
     async removeProcess(row) {
-      // Remove process setting
-      // 确认是否删除
       const confirmed = await this.$confirm(`确认删除 ${row.name} 吗？`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).catch(() => false)
       if (confirmed) {
-        processSteps.deletes(row._id).then((res) => {
-          console.log(res)
+        try {
+          await processSteps.deletes(row._id)
+          this.$message.success('删除成功')
           this.getProcess()
-        })
+        } catch (error) {
+          this.$message.error('删除失败')
+        }
       }
     },
+
     async editProcess(row) {
-      // Edit process setting
-      if (row._id) {
-        this.addProcessForm = row
-        this.addProcessDialogVisible = true
-        return
-      }
+      // 编辑工序
+      this.addProcessForm = { ...row } // 使用展开运算符避免直接引用
+      this.addProcessDialogVisible = true
     },
 
     async handleProcessPageChange(page) {
       this.processForm.page = page
       this.getProcess()
     },
-    showAddProcessDialog() {
-      this.addProcessDialogVisible = true
+
+    // 添加缺失的 handleClick 方法
+    handleClick(tab) {
+      this.activeName = tab.name
     }
   },
 

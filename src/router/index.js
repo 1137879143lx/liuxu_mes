@@ -161,7 +161,7 @@ export const constantRoutes = [
       },
       {
         path: 'caigoudingdan',
-        component: () => import('@/views/caigou/caigoushenqing/index'),
+        component: () => import('@/views/caigou/caigoudingdan/index'),
         name: 'caigoudingdan',
         meta: { title: '采购订单', icon: 'documentation', affix: true }
       },

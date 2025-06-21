@@ -9,7 +9,7 @@ const customerRouter = require('./routes/CustomerRouters')
 const supplierRouter = require('./routes/SupplierRouters')
 const cuttingStockListRouter = require('./routes/Cutting_stock_listRouters')
 const prReplenishmentRequisitionRouter = require('./routes/Pr_ReplenishmentRequisitionRouters')
-const MaterialCategoryRouter = require('./routes/MaterialCategoryRouters')
+const MaterialCategoryRouter = require('./routes/materialCategoryRoutes')
 const UnitRouter = require('./routes/unitsRouters')
 const MaterialRouter = require('./routes/materialsRouters')
 const uploadRouter = require('./routes/upLoadRouters')
@@ -18,7 +18,7 @@ const processSettingRouter = require('./routes/ProcessSettingRouters')
 const salesQuoteRouter = require('./routes/salesQuoteRouters.JS')
 const InboundRouter = require('./routes/InboundRouters')
 const purchaseRequestRouter = require('./routes/purchaseRequestRouters')
-
+const materialCategoryRoutes = require('./routes/materialCategoryRoutes')
 
 const app = express()
 
@@ -61,6 +61,10 @@ app.use('/api/inventory', require('./routes/inventoryRouters'))
 app.use('/api/outbounds', require('./routes/OutboundRouters'))
 app.use('/api/suppliers', require('./routes/SupplierRouters'))
 app.use('/api/purchaseRequests', purchaseRequestRouter) // // 使用路由
+app.use('/api/material-categories', materialCategoryRoutes) // 使用物料类别路由
+const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes'); // 引入采购订单路由
+app.use('/api/purchaseOrders', purchaseOrderRoutes); // 使用采购订单路由
+
 
 // 解析错误中间件
 // eslint-disable-next-line space-before-function-paren
