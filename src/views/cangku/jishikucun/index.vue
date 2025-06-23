@@ -13,14 +13,18 @@
       <!-- 搜索表单 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="物料编码">
-          <el-input v-model="searchForm.materialCode" placeholder="请输入物料编码" clearable />
+          <el-input v-model="searchForm.materialCode" @keyup.enter.native="handleSearch" placeholder="请输入物料编码" clearable />
         </el-form-item>
         <el-form-item label="物料名称">
-          <el-input v-model="searchForm.materialName" placeholder="请输入物料名称" clearable />
+          <el-input v-model="searchForm.materialName" @keyup.enter.native="handleSearch" placeholder="请输入物料名称" clearable />
+        </el-form-item>
+        <!-- 新增规格型号搜索 -->
+        <el-form-item label="规格型号">
+          <el-input v-model="searchForm.specification" @keyup.enter.native="handleSearch" placeholder="请输入规格型号" clearable />
         </el-form-item>
         <!-- 新增版本搜索 -->
         <el-form-item label="版本">
-          <el-input v-model="searchForm.version" placeholder="请输入版本" clearable />
+          <el-input v-model="searchForm.version" @keyup.enter.native="handleSearch" placeholder="请输入版本" clearable />
         </el-form-item>
         <el-form-item label="仓库">
           <el-select v-model="searchForm.warehouse" placeholder="请选择仓库" clearable>
@@ -58,41 +62,96 @@
 
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card class="stats-card">
-          <div class="stats-content">
-            <div class="stats-number">{{ stats.totalItems }}</div>
-            <div class="stats-label">总物料数</div>
+      <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6">
+        <div class="stats-card stats-total">
+          <div class="stats-card-inner">
+            <div class="stats-left">
+              <div class="stats-icon-wrapper total">
+                <i class="el-icon-goods"></i>
+              </div>
+            </div>
+            <div class="stats-right">
+              <div class="stats-number">{{ stats.totalItems || 0 }}</div>
+              <div class="stats-label">总物料数</div>
+              <div class="stats-trend">
+                <i class="el-icon-trend-charts"></i>
+                <span>较昨日 +5%</span>
+              </div>
+            </div>
           </div>
-          <i class="el-icon-goods stats-icon" />
-        </el-card>
+          <div class="stats-progress">
+            <div class="progress-bar total-progress"></div>
+          </div>
+        </div>
       </el-col>
-      <el-col :span="6">
-        <el-card class="stats-card normal">
-          <div class="stats-content">
-            <div class="stats-number">{{ stats.normalStock }}</div>
-            <div class="stats-label">正常库存</div>
+
+      <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6">
+        <div class="stats-card stats-normal">
+          <div class="stats-card-inner">
+            <div class="stats-left">
+              <div class="stats-icon-wrapper normal">
+                <i class="el-icon-success"></i>
+              </div>
+            </div>
+            <div class="stats-right">
+              <div class="stats-number">{{ stats.normalStock || 0 }}</div>
+              <div class="stats-label">正常库存</div>
+              <div class="stats-trend">
+                <i class="el-icon-caret-top"></i>
+                <span>库存充足</span>
+              </div>
+            </div>
           </div>
-          <i class="el-icon-success stats-icon" />
-        </el-card>
+          <div class="stats-progress">
+            <div class="progress-bar normal-progress"></div>
+          </div>
+        </div>
       </el-col>
-      <el-col :span="6">
-        <el-card class="stats-card warning">
-          <div class="stats-content">
-            <div class="stats-number">{{ stats.shortageStock }}</div>
-            <div class="stats-label">缺货预警</div>
+
+      <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6">
+        <div class="stats-card stats-warning">
+          <div class="stats-card-inner">
+            <div class="stats-left">
+              <div class="stats-icon-wrapper warning">
+                <i class="el-icon-warning"></i>
+              </div>
+            </div>
+            <div class="stats-right">
+              <div class="stats-number">{{ stats.shortageStock || 0 }}</div>
+              <div class="stats-label">缺货预警</div>
+              <div class="stats-trend">
+                <i class="el-icon-warning-outline"></i>
+                <span>需要补货</span>
+              </div>
+            </div>
           </div>
-          <i class="el-icon-warning stats-icon" />
-        </el-card>
+          <div class="stats-progress">
+            <div class="progress-bar warning-progress"></div>
+          </div>
+        </div>
       </el-col>
-      <el-col :span="6">
-        <el-card class="stats-card danger">
-          <div class="stats-content">
-            <div class="stats-number">{{ stats.overstockItems }}</div>
-            <div class="stats-label">超储物料</div>
+
+      <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6">
+        <div class="stats-card stats-danger">
+          <div class="stats-card-inner">
+            <div class="stats-left">
+              <div class="stats-icon-wrapper danger">
+                <i class="el-icon-error"></i>
+              </div>
+            </div>
+            <div class="stats-right">
+              <div class="stats-number">{{ stats.overstockItems || 0 }}</div>
+              <div class="stats-label">超储物料</div>
+              <div class="stats-trend">
+                <i class="el-icon-caret-bottom"></i>
+                <span>库存过多</span>
+              </div>
+            </div>
           </div>
-          <i class="el-icon-error stats-icon" />
-        </el-card>
+          <div class="stats-progress">
+            <div class="progress-bar danger-progress"></div>
+          </div>
+        </div>
       </el-col>
     </el-row>
 
@@ -501,6 +560,7 @@ export default {
       searchForm: {
         materialCode: '',
         materialName: '',
+        specification: '', // 新增规格型号搜索字段
         version: '', // 新增版本搜索字段
         warehouse: '',
         stockStatus: ''
@@ -715,6 +775,7 @@ export default {
       this.searchForm = {
         materialCode: '',
         materialName: '',
+        specification: '', // 重置规格型号字段
         version: '', // 重置版本字段
         warehouse: '',
         stockStatus: ''
@@ -843,6 +904,7 @@ export default {
           const searchConditions = []
           if (this.searchForm.materialCode) searchConditions.push(`物料编码_${this.searchForm.materialCode}`)
           if (this.searchForm.materialName) searchConditions.push(`物料名称_${this.searchForm.materialName}`)
+          if (this.searchForm.specification) searchConditions.push(`规格型号_${this.searchForm.specification}`) // 包含规格型号
           if (this.searchForm.version) searchConditions.push(`版本_${this.searchForm.version}`)
           if (this.searchForm.warehouse) searchConditions.push(`仓库_${this.searchForm.warehouse}`)
           if (this.searchForm.stockStatus) searchConditions.push(`状态_${this.getStatusText(this.searchForm.stockStatus)}`)
@@ -888,6 +950,7 @@ export default {
             const params = {
               materialCode: this.searchForm.materialCode,
               materialName: this.searchForm.materialName,
+              specification: this.searchForm.specification, // 包含规格型号搜索条件
               version: this.searchForm.version,
               warehouse: this.searchForm.warehouse,
               stockStatus: this.searchForm.stockStatus,
@@ -1567,50 +1630,312 @@ export default {
     margin-bottom: 10px;
   }
 }
-
 .stats-row {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+
+  .el-col {
+    margin-bottom: 16px;
+
+    @media (min-width: 768px) {
+      margin-bottom: 0;
+    }
+  }
 }
 
 .stats-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
   position: relative;
+  cursor: pointer;
 
-  .stats-content {
-    .stats-number {
-      font-size: 24px;
-      font-weight: bold;
-      color: #303133;
-    }
-
-    .stats-label {
-      font-size: 14px;
-      color: #909399;
-      margin-top: 5px;
-    }
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
   }
 
-  .stats-icon {
+  &::before {
+    content: '';
     position: absolute;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 32px;
-    color: #c0c4cc;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   }
 
-  &.normal .stats-icon {
-    color: #67c23a;
+  &.stats-total::before {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   }
 
-  &.warning .stats-icon {
-    color: #e6a23c;
+  &.stats-normal::before {
+    background: linear-gradient(90deg, #56ab2f 0%, #a8e6cf 100%);
   }
 
-  &.danger .stats-icon {
-    color: #f56c6c;
+  &.stats-warning::before {
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+  }
+
+  &.stats-danger::before {
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  }
+
+  .stats-card-inner {
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .stats-left {
+      .stats-icon-wrapper {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+
+        i {
+          font-size: 28px;
+          z-index: 2;
+          position: relative;
+        }
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 50%;
+          opacity: 0.1;
+          z-index: 1;
+        }
+
+        &.total {
+          color: #667eea;
+          &::before {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          }
+        }
+
+        &.normal {
+          color: #56ab2f;
+          &::before {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+          }
+        }
+
+        &.warning {
+          color: #f093fb;
+          &::before {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          }
+        }
+
+        &.danger {
+          color: #4facfe;
+          &::before {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+          }
+        }
+      }
+    }
+
+    .stats-right {
+      flex: 1;
+      text-align: right;
+
+      .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #2c3e50;
+        line-height: 1;
+        margin-bottom: 8px;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      }
+
+      .stats-label {
+        font-size: 16px;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+
+      .stats-trend {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        font-size: 12px;
+        color: #95a5a6;
+
+        i {
+          margin-right: 4px;
+          font-size: 14px;
+        }
+
+        span {
+          font-weight: 500;
+        }
+      }
+    }
+  }
+
+  .stats-progress {
+    height: 6px;
+    background-color: #f8f9fa;
+    position: relative;
+    overflow: hidden;
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      animation: progressAnimation 2s ease-in-out forwards;
+
+      &.total-progress {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        width: 85%;
+      }
+
+      &.normal-progress {
+        background: linear-gradient(90deg, #56ab2f 0%, #a8e6cf 100%);
+        width: 92%;
+      }
+
+      &.warning-progress {
+        background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+        width: 68%;
+      }
+
+      &.danger-progress {
+        background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+        width: 45%;
+      }
+    }
   }
 }
 
+@keyframes progressAnimation {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--progress-width, 0);
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .stats-card {
+    .stats-card-inner {
+      padding: 20px;
+
+      .stats-left {
+        .stats-icon-wrapper {
+          width: 56px;
+          height: 56px;
+
+          i {
+            font-size: 24px;
+          }
+        }
+      }
+
+      .stats-right {
+        .stats-number {
+          font-size: 2rem;
+        }
+
+        .stats-label {
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .stats-row {
+    .el-col {
+      margin-bottom: 12px;
+    }
+  }
+
+  .stats-card {
+    .stats-card-inner {
+      padding: 16px;
+      flex-direction: column;
+      text-align: center;
+
+      .stats-left {
+        margin-bottom: 16px;
+      }
+
+      .stats-right {
+        text-align: center;
+
+        .stats-trend {
+          justify-content: center;
+        }
+      }
+    }
+  }
+}
+
+// 暗色主题支持
+@media (prefers-color-scheme: dark) {
+  .stats-card {
+    background: #1e1e1e;
+    color: #ffffff;
+
+    .stats-card-inner {
+      .stats-right {
+        .stats-number {
+          color: #ffffff;
+        }
+
+        .stats-label {
+          color: #b0b0b0;
+        }
+
+        .stats-trend {
+          color: #888888;
+        }
+      }
+    }
+
+    .stats-progress {
+      background-color: #2a2a2a;
+    }
+  }
+}
+
+// 加载动画
+.stats-card-loading {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    left: 100%;
+  }
+}
 .table-card {
   .el-table {
     ::v-deep .shortage-row {

@@ -60,6 +60,8 @@ router.get('/export', async (req, res) => {
             warehouse,
             stockStatus,
             version // 添加版本筛选条件
+
+
         } = req.query
 
         // 构建查询条件
@@ -434,7 +436,8 @@ router.get('/', async (req, res) => {
             materialCode,
             materialName,
             warehouse,
-            stockStatus
+            stockStatus,
+            specification
         } = req.query
 
         // 构建查询条件
@@ -454,6 +457,9 @@ router.get('/', async (req, res) => {
 
         if (stockStatus) {
             query.status = stockStatus
+        }
+        if (specification) {
+            query.specification = { $regex: specification, $options: 'i' }
         }
 
         const options = {
