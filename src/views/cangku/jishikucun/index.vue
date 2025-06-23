@@ -307,60 +307,307 @@
     </el-row>
 
     <!-- 库存表格 -->
-    <el-card class="table-card">
-      <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%" :row-class-name="getRowClassName">
-        <el-table-column prop="materialCode" label="物料编码" width="120" fixed="left">
+    <el-card class="table-card" shadow="never">
+      <!-- 表格工具栏 -->
+      <div slot="header" class="table-header">
+        <div class="header-left">
+          <span class="table-title">
+            <i class="el-icon-menu"></i>
+            库存清单
+          </span>
+          <el-tag v-if="pagination.total > 0" type="info" size="small" class="total-tag">共 {{ pagination.total }} 条记录</el-tag>
+        </div>
+        <div class="header-right">
+          <!-- 表格工具按钮 -->
+          <el-tooltip content="刷新表格" placement="top">
+            <el-button icon="el-icon-refresh" size="mini" circle @click="loadData" :loading="loading"></el-button>
+          </el-tooltip>
+
+          <el-tooltip content="列设置" placement="top">
+            <el-button icon="el-icon-setting" size="mini" circle @click="showColumnSettings = true"></el-button>
+          </el-tooltip>
+
+          <el-tooltip content="全屏显示" placement="top">
+            <el-button icon="el-icon-full-screen" size="mini" circle @click="toggleFullscreen"></el-button>
+          </el-tooltip>
+        </div>
+      </div>
+
+      <!-- 快速筛选栏 -->
+      <div class="quick-filter-bar">
+        <div class="filter-left">
+          <el-button-group size="small">
+            <el-button :type="quickFilter === 'all' ? 'primary' : ''" @click="setQuickFilter('all')">全部 ({{ stats.totalItems }})</el-button>
+            <el-button :type="quickFilter === 'normal' ? 'success' : ''" @click="setQuickFilter('normal')">正常 ({{ stats.normalStock }})</el-button>
+            <el-button :type="quickFilter === 'shortage' ? 'danger' : ''" @click="setQuickFilter('shortage')">
+              缺货 ({{ stats.shortageStock }})
+            </el-button>
+            <el-button :type="quickFilter === 'overstock' ? 'warning' : ''" @click="setQuickFilter('overstock')">
+              超储 ({{ stats.overstockItems }})
+            </el-button>
+          </el-button-group>
+        </div>
+
+        <div class="filter-right">
+          <el-select v-model="tableSettings.sortBy" placeholder="排序方式" size="small" style="width: 150px" @change="handleSortChange">
+            <el-option label="物料编码" value="materialCode"></el-option>
+            <el-option label="物料名称" value="materialName"></el-option>
+            <el-option label="当前库存" value="currentStock"></el-option>
+            <el-option label="更新时间" value="lastUpdateTime"></el-option>
+          </el-select>
+
+          <el-select v-model="tableSettings.sortOrder" size="small" style="width: 80px; margin-left: 8px" @change="handleSortChange">
+            <el-option label="升序" value="asc"></el-option>
+            <el-option label="降序" value="desc"></el-option>
+          </el-select>
+        </div>
+      </div>
+
+      <!-- 主表格 -->
+      <el-table
+        v-loading="loading"
+        :data="tableData"
+        border
+        stripe
+        style="width: 100%"
+        :row-class-name="getRowClassName"
+        :header-cell-style="{ background: '#f8f9fa', color: '#606266', fontWeight: '600' }"
+        :cell-style="getCellStyle"
+        @selection-change="handleSelectionChange"
+        @sort-change="handleTableSortChange"
+        ref="inventoryTable">
+        <!-- 选择列 -->
+        <el-table-column type="selection" width="50" fixed="left" align="center"></el-table-column>
+
+        <!-- 序号列 -->
+        <el-table-column
+          type="index"
+          label="序号"
+          width="60"
+          fixed="left"
+          align="center"
+          :index="(index) => (pagination.currentPage - 1) * pagination.pageSize + index + 1"></el-table-column>
+
+        <!-- 物料编码 -->
+        <el-table-column prop="materialCode" label="物料编码" width="140" fixed="left" sortable="custom" show-overflow-tooltip>
           <template slot-scope="scope">
-            <el-link type="primary" @click="viewDetail(scope.row)">{{ scope.row.materialCode }}</el-link>
+            <div class="material-code-cell">
+              <el-link type="primary" @click="viewDetail(scope.row)" class="material-link">
+                {{ scope.row.materialCode }}
+              </el-link>
+              <el-tooltip v-if="scope.row.isNew" content="新增物料" placement="top">
+                <el-tag size="mini" type="success" class="new-tag">NEW</el-tag>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="materialName" label="物料名称" width="200" show-overflow-tooltip />
-        <el-table-column prop="specification" label="规格型号" width="150" show-overflow-tooltip />
-        <!-- 新增版本列 -->
-        <el-table-column prop="version" label="版本" width="100" align="center">
+
+        <!-- 物料信息 -->
+        <el-table-column label="物料信息" min-width="280" show-overflow-tooltip>
           <template slot-scope="scope">
-            <el-tag v-if="scope.row.version" size="small" type="info">{{ scope.row.version }}</el-tag>
-            <span v-else>--</span>
+            <div class="material-info-cell">
+              <div class="material-name">{{ scope.row.materialName }}</div>
+              <div class="material-details">
+                <span v-if="scope.row.specification" class="spec-info">
+                  <i class="el-icon-menu"></i>
+                  {{ scope.row.specification }}
+                </span>
+                <span v-if="scope.row.version" class="version-info">
+                  <i class="el-icon-price-tag"></i>
+                  {{ scope.row.version }}
+                </span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="unit" label="单位" width="80" align="center" />
-        <el-table-column prop="warehouse" label="仓库" width="100" align="center">
+
+        <!-- 单位 -->
+        <el-table-column prop="unit" label="单位" width="80" align="center">
           <template slot-scope="scope">
-            <el-tag :type="getWarehouseType(scope.row.warehouse)">{{ getWarehouseName(scope.row.warehouse) }}</el-tag>
+            <el-tag size="mini" type="info">{{ scope.row.unit }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="currentStock" label="当前库存" width="120" align="right">
+
+        <!-- 仓库 -->
+        <el-table-column prop="warehouse" label="仓库" width="120" align="center">
           <template slot-scope="scope">
-            <span :class="getStockClass(scope.row)">{{ scope.row.currentStock }}</span>
+            <div class="warehouse-cell">
+              <i :class="getWarehouseIcon(scope.row.warehouse)" class="warehouse-icon"></i>
+              <el-tag :type="getWarehouseType(scope.row.warehouse)" size="small">
+                {{ getWarehouseName(scope.row.warehouse) }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="safetyStock" label="安全库存" width="120" align="right" />
-        <el-table-column prop="maxStock" label="最大库存" width="120" align="right" />
-        <el-table-column label="库存状态" width="100" align="center">
+
+        <!-- 库存信息 -->
+        <el-table-column label="库存信息" width="300" align="center">
           <template slot-scope="scope">
-            <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+            <div class="stock-info-cell">
+              <!-- 当前库存 -->
+              <div class="stock-item current-stock">
+                <span class="stock-label">当前:</span>
+                <span :class="getStockClass(scope.row)" class="stock-value">
+                  {{ formatNumber(scope.row.currentStock) }}
+                </span>
+              </div>
+
+              <!-- 库存进度条 -->
+              <div class="stock-progress">
+                <el-progress
+                  :percentage="getStockPercentage(scope.row)"
+                  :status="getProgressStatus(scope.row)"
+                  :stroke-width="4"
+                  :show-text="false"></el-progress>
+              </div>
+
+              <!-- 安全库存和最大库存 -->
+              <div class="stock-range">
+                <span class="range-item">
+                  <i class="el-icon-warning-outline"></i>
+                  安全: {{ formatNumber(scope.row.safetyStock) }}
+                </span>
+                <span class="range-item">
+                  <i class="el-icon-top"></i>
+                  最大: {{ formatNumber(scope.row.maxStock) }}
+                </span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="lastUpdateTime" label="最后更新" width="160" align="center" />
+
+        <!-- 库存状态 -->
+        <el-table-column label="状态" width="100" align="center">
+          <template slot-scope="scope">
+            <div class="status-cell">
+              <el-tag :type="getStatusType(scope.row.status)" :effect="scope.row.status === 'shortage' ? 'dark' : 'plain'" class="status-tag">
+                <i :class="getStatusIcon(scope.row.status)"></i>
+                {{ getStatusText(scope.row.status) }}
+              </el-tag>
+
+              <!-- 状态指示器 -->
+              <div :class="`status-indicator ${scope.row.status}`"></div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <!-- 最后更新 -->
+        <el-table-column prop="lastUpdateTime" label="最后更新" width="160" align="center" sortable="custom">
+          <template slot-scope="scope">
+            <div class="update-time-cell">
+              <div class="update-time">{{ formatDateTime(scope.row.lastUpdateTime) }}</div>
+              <div class="update-relative">{{ getRelativeTime(scope.row.lastUpdateTime) }}</div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <!-- 操作列 -->
         <el-table-column label="操作" width="200" fixed="right" align="center">
           <template slot-scope="scope">
-            <el-button size="mini" @click="adjustStock(scope.row)">库存调整</el-button>
-            <el-button size="mini" type="success" @click="viewHistory(scope.row)">出入库记录</el-button>
+            <div class="action-buttons">
+              <el-tooltip content="库存调整" placement="top">
+                <el-button size="mini" type="primary" icon="el-icon-edit" @click="adjustStock(scope.row)" circle></el-button>
+              </el-tooltip>
+
+              <el-tooltip content="出入库记录" placement="top">
+                <el-button size="mini" type="success" icon="el-icon-document" @click="viewHistory(scope.row)" circle></el-button>
+              </el-tooltip>
+
+              <el-tooltip content="物料详情" placement="top">
+                <el-button size="mini" type="info" icon="el-icon-view" @click="viewDetail(scope.row)" circle></el-button>
+              </el-tooltip>
+
+              <!-- 更多操作下拉菜单 -->
+              <el-dropdown trigger="click" @command="(command) => handleRowAction(command, scope.row)">
+                <el-button size="mini" type="text" icon="el-icon-more" circle></el-button>
+                <el-dropdown-menu slot="dropdown">
+                  <el-dropdown-item command="copy" icon="el-icon-copy-document">复制编码</el-dropdown-item>
+                  <el-dropdown-item command="qrcode" icon="el-icon-qrcode">生成二维码</el-dropdown-item>
+                  <el-dropdown-item command="alert" icon="el-icon-bell" divided>设置预警</el-dropdown-item>
+                  <el-dropdown-item command="disable" icon="el-icon-circle-close">禁用物料</el-dropdown-item>
+                </el-dropdown-menu>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
-      <el-pagination
-        :current-page="pagination.currentPage"
-        :page-sizes="[10, 20, 50, 100]"
-        :page-size="pagination.pageSize"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="pagination.total"
-        style="margin-top: 20px; text-align: center"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange" />
+      <!-- 批量操作栏 -->
+      <div v-if="selectedRows.length > 0" class="batch-actions-bar">
+        <div class="batch-left">
+          <span class="batch-info">
+            已选择
+            <strong>{{ selectedRows.length }}</strong>
+            项
+          </span>
+          <el-button type="text" size="small" @click="clearSelection">取消选择</el-button>
+        </div>
+        <div class="batch-right">
+          <el-button size="small" icon="el-icon-edit" @click="batchAdjust">批量调整</el-button>
+          <el-button size="small" icon="el-icon-download" @click="batchExport">批量导出</el-button>
+          <el-button size="small" icon="el-icon-warning" type="warning" @click="batchAlert">设置预警</el-button>
+        </div>
+      </div>
+
+      <!-- 增强分页 -->
+      <div class="enhanced-pagination">
+        <div class="pagination-left">
+          <span class="pagination-info">
+            显示第 {{ (pagination.currentPage - 1) * pagination.pageSize + 1 }} 到
+            {{ Math.min(pagination.currentPage * pagination.pageSize, pagination.total) }} 条， 共 {{ pagination.total }} 条记录
+          </span>
+        </div>
+
+        <div class="pagination-center">
+          <el-pagination
+            :current-page="pagination.currentPage"
+            :page-sizes="[10, 20, 50, 100, 200]"
+            :page-size="pagination.pageSize"
+            layout="sizes, prev, pager, next, jumper"
+            :total="pagination.total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :pager-count="7"
+            small />
+        </div>
+
+        <div class="pagination-right">
+          <el-button-group size="mini">
+            <el-button icon="el-icon-d-arrow-left" @click="goToPage(1)" :disabled="pagination.currentPage === 1">首页</el-button>
+            <el-button icon="el-icon-d-arrow-right" @click="goToPage(totalPages)" :disabled="pagination.currentPage === totalPages">末页</el-button>
+          </el-button-group>
+        </div>
+      </div>
     </el-card>
+
+    <!-- 列设置对话框 -->
+    <el-dialog title="列设置" :visible.sync="showColumnSettings" width="600px">
+      <div class="column-settings">
+        <div class="settings-header">
+          <el-button size="small" @click="resetColumns">重置</el-button>
+          <el-button size="small" type="primary" @click="saveColumnSettings">保存设置</el-button>
+        </div>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <h4>显示列</h4>
+            <el-checkbox-group v-model="columnSettings.visible">
+              <el-checkbox v-for="column in availableColumns" :key="column.key" :label="column.key" :disabled="column.required">
+                {{ column.label }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </el-col>
+
+          <el-col :span="12">
+            <h4>列宽设置</h4>
+            <div v-for="column in visibleColumns" :key="column.key" class="width-setting">
+              <span class="column-label">{{ column.label }}:</span>
+              <el-input-number v-model="columnSettings.widths[column.key]" :min="80" :max="500" size="mini"></el-input-number>
+            </div>
+          </el-col>
+        </el-row>
+      </div>
+    </el-dialog>
 
     <!-- 导入库存对话框 -->
     <el-dialog title="导入库存数据" :visible.sync="importDialogVisible" width="900px" :before-close="resetImport">
@@ -693,6 +940,39 @@ export default {
   name: 'InventoryRealTime',
   data() {
     return {
+      // 表格设置
+      quickFilter: 'all', // 快速筛选
+      selectedRows: [], // 选中的行
+      showColumnSettings: false, // 显示列设置对话框
+      tableSettings: {
+        sortBy: 'materialCode',
+        sortOrder: 'asc'
+      },
+
+      // 列设置
+      columnSettings: {
+        visible: ['materialCode', 'materialInfo', 'unit', 'warehouse', 'stockInfo', 'status', 'lastUpdateTime'],
+        widths: {
+          materialCode: 140,
+          materialInfo: 280,
+          unit: 80,
+          warehouse: 120,
+          stockInfo: 300,
+          status: 100,
+          lastUpdateTime: 160
+        }
+      },
+
+      availableColumns: [
+        { key: 'materialCode', label: '物料编码', required: true },
+        { key: 'materialInfo', label: '物料信息', required: true },
+        { key: 'unit', label: '单位', required: false },
+        { key: 'warehouse', label: '仓库', required: false },
+        { key: 'stockInfo', label: '库存信息', required: true },
+        { key: 'status', label: '状态', required: false },
+        { key: 'lastUpdateTime', label: '更新时间', required: false }
+      ],
+
       // 导入相关
       importDialogVisible: false,
       importStep: 0, // 0: 上传, 1: 预览, 2: 结果
@@ -793,6 +1073,14 @@ export default {
   },
 
   computed: {
+    totalPages() {
+      return Math.ceil(this.pagination.total / this.pagination.pageSize)
+    },
+
+    visibleColumns() {
+      return this.availableColumns.filter((col) => this.columnSettings.visible.includes(col.key))
+    },
+
     // 检查是否有搜索条件
     hasSearchConditions() {
       return Object.values(this.searchForm).some((value) => {
@@ -1618,6 +1906,207 @@ export default {
     showImportDialog() {
       this.importDialogVisible = true
       this.resetImport()
+    },
+
+    // 快速筛选
+    setQuickFilter(filter) {
+      this.quickFilter = filter
+      if (filter === 'all') {
+        this.searchForm.stockStatus = ''
+      } else {
+        this.searchForm.stockStatus = filter
+      }
+      this.handleSearch()
+    },
+
+    // 处理选择变化
+    handleSelectionChange(selection) {
+      this.selectedRows = selection
+    },
+
+    // 清除选择
+    clearSelection() {
+      this.$refs.inventoryTable.clearSelection()
+    },
+
+    // 批量操作
+    batchAdjust() {
+      if (this.selectedRows.length === 0) {
+        this.$message.warning('请先选择要调整的物料')
+        return
+      }
+      this.$message.info(`批量调整 ${this.selectedRows.length} 个物料`)
+    },
+
+    batchExport() {
+      if (this.selectedRows.length === 0) {
+        this.$message.warning('请先选择要导出的物料')
+        return
+      }
+      this.$message.info(`批量导出 ${this.selectedRows.length} 个物料`)
+    },
+
+    batchAlert() {
+      if (this.selectedRows.length === 0) {
+        this.$message.warning('请先选择要设置预警的物料')
+        return
+      }
+      this.$message.info(`为 ${this.selectedRows.length} 个物料设置预警`)
+    },
+
+    // 行操作
+    handleRowAction(command, row) {
+      switch (command) {
+        case 'copy':
+          this.copyToClipboard(row.materialCode)
+          this.$message.success('物料编码已复制到剪贴板')
+          break
+        case 'qrcode':
+          this.$message.info('生成二维码功能开发中')
+          break
+        case 'alert':
+          this.$message.info('设置预警功能开发中')
+          break
+        case 'disable':
+          this.$confirm('确定要禁用该物料吗？', '确认禁用', {
+            type: 'warning'
+          })
+            .then(() => {
+              this.$message.success('物料已禁用')
+            })
+            .catch(() => {})
+          break
+      }
+    },
+
+    // 复制到剪贴板
+    copyToClipboard(text) {
+      navigator.clipboard.writeText(text).catch(() => {
+        // 兼容性处理
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      })
+    },
+
+    // 跳转到指定页
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.pagination.currentPage = page
+        this.loadData()
+      }
+    },
+
+    // 排序处理
+    handleSortChange() {
+      this.loadData()
+    },
+
+    handleTableSortChange({ column, prop, order }) {
+      this.tableSettings.sortBy = prop
+      this.tableSettings.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+      this.loadData()
+    },
+
+    // 全屏切换
+    toggleFullscreen() {
+      const element = this.$refs.inventoryTable.$el
+      if (!document.fullscreenElement) {
+        element.requestFullscreen().catch(() => {
+          this.$message.error('全屏模式不支持')
+        })
+      } else {
+        document.exitFullscreen()
+      }
+    },
+
+    // 列设置相关
+    resetColumns() {
+      this.columnSettings = {
+        visible: ['materialCode', 'materialInfo', 'unit', 'warehouse', 'stockInfo', 'status', 'lastUpdateTime'],
+        widths: {
+          materialCode: 140,
+          materialInfo: 280,
+          unit: 80,
+          warehouse: 120,
+          stockInfo: 300,
+          status: 100,
+          lastUpdateTime: 160
+        }
+      }
+    },
+
+    saveColumnSettings() {
+      localStorage.setItem('inventory_column_settings', JSON.stringify(this.columnSettings))
+      this.showColumnSettings = false
+      this.$message.success('列设置已保存')
+    },
+
+    // 获取相对时间
+    getRelativeTime(dateTime) {
+      if (!dateTime) return ''
+      const now = new Date()
+      const time = new Date(dateTime)
+      const diff = now - time
+
+      const minutes = Math.floor(diff / 60000)
+      const hours = Math.floor(diff / 3600000)
+      const days = Math.floor(diff / 86400000)
+
+      if (minutes < 1) return '刚刚'
+      if (minutes < 60) return `${minutes}分钟前`
+      if (hours < 24) return `${hours}小时前`
+      if (days < 30) return `${days}天前`
+      return '很久以前'
+    },
+
+    // 获取仓库图标
+    getWarehouseIcon(warehouse) {
+      const iconMap = {
+        原料仓: 'el-icon-box',
+        成品仓: 'el-icon-goods',
+        半成品仓: 'el-icon-cpu',
+        耗材仓: 'el-icon-paperclip'
+      }
+      return iconMap[warehouse] || 'el-icon-box'
+    },
+
+    // 获取状态图标
+    getStatusIcon(status) {
+      const iconMap = {
+        normal: 'el-icon-success',
+        shortage: 'el-icon-warning',
+        overstock: 'el-icon-info'
+      }
+      return iconMap[status] || 'el-icon-info'
+    },
+
+    // 获取库存百分比
+    getStockPercentage(row) {
+      if (row.maxStock <= 0) return 0
+      return Math.min(Math.round((row.currentStock / row.maxStock) * 100), 100)
+    },
+
+    // 获取进度条状态
+    getProgressStatus(row) {
+      if (row.status === 'shortage') return 'exception'
+      if (row.status === 'overstock') return 'warning'
+      return 'success'
+    },
+
+    // 格式化数字
+    formatNumber(num) {
+      if (num === null || num === undefined) return '0'
+      return num.toLocaleString()
+    },
+
+    // 获取单元格样式
+    getCellStyle({ row, column, rowIndex, columnIndex }) {
+      // 可以根据需要添加特殊的单元格样式
+      return {}
     },
 
     // 重置导入状态
@@ -2494,14 +2983,474 @@ export default {
     left: 100%;
   }
 }
+// 表格卡片样式
 .table-card {
-  .el-table {
-    ::v-deep .shortage-row {
-      background-color: #fef0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .table-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #303133;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        i {
+          color: #409eff;
+        }
+      }
+
+      .total-tag {
+        font-size: 12px;
+      }
     }
 
-    ::v-deep .overstock-row {
-      background-color: #fdf6ec;
+    .header-right {
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  // 快速筛选栏
+  .quick-filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e4e7ed;
+
+    .filter-left {
+      .el-button-group .el-button {
+        border-radius: 6px;
+        margin-right: 1px;
+
+        &:first-child {
+          border-top-right-radius: 0;
+          border-bottom-right-radius: 0;
+        }
+
+        &:last-child {
+          border-top-left-radius: 0;
+          border-bottom-left-radius: 0;
+          margin-right: 0;
+        }
+
+        &:not(:first-child):not(:last-child) {
+          border-radius: 0;
+        }
+      }
+    }
+
+    .filter-right {
+      display: flex;
+      align-items: center;
+    }
+  }
+}
+
+// 表格内容样式
+::v-deep .el-table {
+  // 表头样式
+  .el-table__header-wrapper {
+    .el-table__header {
+      th {
+        background: #f8f9fa !important;
+        color: #606266 !important;
+        font-weight: 600 !important;
+        border-bottom: 2px solid #e4e7ed !important;
+      }
+    }
+  }
+
+  // 行样式
+  .el-table__body {
+    tr {
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: #f0f9ff !important;
+      }
+
+      &.shortage-row {
+        background-color: #fef0f0 !important;
+
+        &:hover {
+          background-color: #fde2e2 !important;
+        }
+      }
+
+      &.overstock-row {
+        background-color: #fdf6ec !important;
+
+        &:hover {
+          background-color: #faecd8 !important;
+        }
+      }
+
+      &.warning-row {
+        background-color: #fff7e6 !important;
+
+        &:hover {
+          background-color: #fef0c7 !important;
+        }
+      }
+    }
+  }
+}
+
+// 单元格样式
+.material-code-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .material-link {
+    font-weight: 600;
+    font-family: 'Monaco', 'Consolas', monospace;
+  }
+
+  .new-tag {
+    font-size: 10px;
+    height: 16px;
+    line-height: 14px;
+    padding: 0 4px;
+  }
+}
+
+.material-info-cell {
+  .material-name {
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  .material-details {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #909399;
+
+    .spec-info,
+    .version-info {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      i {
+        font-size: 12px;
+      }
+    }
+
+    .spec-info {
+      color: #e6a23c;
+    }
+
+    .version-info {
+      color: #909399;
+    }
+  }
+}
+
+.warehouse-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  .warehouse-icon {
+    font-size: 14px;
+    color: #909399;
+  }
+}
+
+.stock-info-cell {
+  .stock-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+
+    .stock-label {
+      font-size: 12px;
+      color: #909399;
+    }
+
+    .stock-value {
+      font-weight: 700;
+      font-size: 16px;
+      font-family: 'Monaco', 'Consolas', monospace;
+
+      &.text-danger {
+        color: #f56c6c;
+      }
+
+      &.text-warning {
+        color: #e6a23c;
+      }
+
+      &.text-success {
+        color: #67c23a;
+      }
+    }
+  }
+
+  .stock-progress {
+    margin: 8px 0;
+
+    ::v-deep .el-progress-bar__outer {
+      border-radius: 4px;
+    }
+  }
+
+  .stock-range {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #c0c4cc;
+
+    .range-item {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+
+      i {
+        font-size: 10px;
+      }
+    }
+  }
+}
+
+.status-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .status-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    i {
+      font-size: 12px;
+    }
+  }
+
+  .status-indicator {
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+
+    &.normal {
+      background: #67c23a;
+      box-shadow: 0 0 6px rgba(103, 194, 58, 0.5);
+    }
+
+    &.shortage {
+      background: #f56c6c;
+      box-shadow: 0 0 6px rgba(245, 108, 108, 0.5);
+      animation: pulse 2s infinite;
+    }
+
+    &.overstock {
+      background: #e6a23c;
+      box-shadow: 0 0 6px rgba(230, 162, 60, 0.5);
+    }
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-50%) scale(1.2);
+  }
+}
+
+.update-time-cell {
+  text-align: center;
+
+  .update-time {
+    font-size: 13px;
+    color: #303133;
+    margin-bottom: 2px;
+  }
+
+  .update-relative {
+    font-size: 11px;
+    color: #c0c4cc;
+  }
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+
+  .el-button {
+    transition: all 0.2s;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+}
+
+// 批量操作栏
+.batch-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #e6f7ff;
+  border-top: 1px solid #91d5ff;
+
+  .batch-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .batch-info {
+      font-size: 14px;
+      color: #1890ff;
+
+      strong {
+        color: #003a8c;
+      }
+    }
+  }
+
+  .batch-right {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+// 增强分页
+.enhanced-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #fafafa;
+  border-top: 1px solid #e4e7ed;
+
+  .pagination-left {
+    .pagination-info {
+      font-size: 13px;
+      color: #606266;
+    }
+  }
+
+  .pagination-right {
+    .el-button-group {
+      .el-button {
+        padding: 7px 15px;
+      }
+    }
+  }
+}
+
+// 列设置对话框
+.column-settings {
+  .settings-header {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e4e7ed;
+  }
+
+  .width-setting {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    .column-label {
+      font-size: 13px;
+      color: #606266;
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 1200px) {
+  .quick-filter-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .enhanced-pagination {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .batch-actions-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stock-info-cell {
+    .stock-range {
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+}
+
+// 工具提示样式
+::v-deep .el-tooltip__popper {
+  font-size: 12px;
+}
+
+// 下拉菜单样式
+::v-deep .el-dropdown-menu {
+  .el-dropdown-menu__item {
+    padding: 8px 16px;
+    font-size: 13px;
+
+    i {
+      margin-right: 6px;
+      color: #909399;
+    }
+
+    &:hover i {
+      color: #409eff;
     }
   }
 }
