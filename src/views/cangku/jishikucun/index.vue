@@ -1,63 +1,214 @@
 <template>
   <div class="inventory-container">
     <!-- 搜索和操作区域 -->
-    <el-card class="search-card">
-      <div slot="header" class="clearfix">
-        <span>即时库存管理</span>
-        <div style="float: right">
-          <el-button type="success" icon="el-icon-upload2" @click="showImportDialog">导入库存</el-button>
-          <el-button type="primary" icon="el-icon-refresh" @click="refreshData">刷新</el-button>
+    <!-- 搜索和操作区域 -->
+    <el-card class="search-card" shadow="never">
+      <div slot="header" class="search-header">
+        <div class="header-left">
+          <i class="el-icon-search header-icon"></i>
+          <span class="header-title">即时库存管理</span>
+        </div>
+        <div class="header-right">
+          <el-button type="success" icon="el-icon-upload2" size="small" @click="showImportDialog">导入库存</el-button>
+          <el-button type="primary" icon="el-icon-refresh" size="small" @click="refreshData">刷新数据</el-button>
         </div>
       </div>
 
       <!-- 搜索表单 -->
-      <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="物料编码">
-          <el-input v-model="searchForm.materialCode" @keyup.enter.native="handleSearch" placeholder="请输入物料编码" clearable />
-        </el-form-item>
-        <el-form-item label="物料名称">
-          <el-input v-model="searchForm.materialName" @keyup.enter.native="handleSearch" placeholder="请输入物料名称" clearable />
-        </el-form-item>
-        <!-- 新增规格型号搜索 -->
-        <el-form-item label="规格型号">
-          <el-input v-model="searchForm.specification" @keyup.enter.native="handleSearch" placeholder="请输入规格型号" clearable />
-        </el-form-item>
-        <!-- 新增版本搜索 -->
-        <el-form-item label="版本">
-          <el-input v-model="searchForm.version" @keyup.enter.native="handleSearch" placeholder="请输入版本" clearable />
-        </el-form-item>
-        <el-form-item label="仓库">
-          <el-select v-model="searchForm.warehouse" placeholder="请选择仓库" clearable>
-            <el-option label="原料仓" value="原料仓" />
-            <el-option label="成品仓" value="成品仓" />
-            <el-option label="半成品仓" value="半成品仓" />
-            <el-option label="耗材仓" value="耗材仓" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="库存状态">
-          <el-select v-model="searchForm.stockStatus" placeholder="请选择状态" clearable>
-            <el-option label="正常" value="normal" />
-            <el-option label="缺货" value="shortage" />
-            <el-option label="超储" value="overstock" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="resetSearch">重置</el-button>
-          <!-- 添加下拉导出选项 -->
-          <el-dropdown @command="handleExportCommand">
-            <el-button type="success" icon="el-icon-download">
-              导出
-              <i class="el-icon-arrow-down el-icon--right"></i>
-            </el-button>
-            <el-dropdown-menu slot="dropdown">
-              <el-dropdown-item command="current">导出当前搜索结果</el-dropdown-item>
-              <el-dropdown-item command="all">导出所有数据</el-dropdown-item>
-              <el-dropdown-item command="template">下载导入模板</el-dropdown-item>
-            </el-dropdown-menu>
-          </el-dropdown>
-        </el-form-item>
-      </el-form>
+      <div class="search-form-wrapper">
+        <el-form ref="searchForm" :model="searchForm" class="advanced-search-form" :inline="false" label-position="top">
+          <!-- 第一行：基础搜索 -->
+          <el-row :gutter="20" class="search-row">
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="4">
+              <el-form-item label="物料编码" class="search-item">
+                <el-input
+                  v-model="searchForm.materialCode"
+                  @keyup.enter.native="handleSearch"
+                  placeholder="请输入物料编码"
+                  clearable
+                  prefix-icon="el-icon-goods"
+                  size="medium" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="4">
+              <el-form-item label="物料名称" class="search-item">
+                <el-input
+                  v-model="searchForm.materialName"
+                  @keyup.enter.native="handleSearch"
+                  placeholder="请输入物料名称"
+                  clearable
+                  prefix-icon="el-icon-collection-tag"
+                  size="medium" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="4">
+              <el-form-item label="规格型号" class="search-item">
+                <el-input
+                  v-model="searchForm.specification"
+                  @keyup.enter.native="handleSearch"
+                  placeholder="请输入规格型号"
+                  clearable
+                  prefix-icon="el-icon-menu"
+                  size="medium" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="4">
+              <el-form-item label="版本" class="search-item">
+                <el-input
+                  v-model="searchForm.version"
+                  @keyup.enter.native="handleSearch"
+                  placeholder="请输入版本"
+                  clearable
+                  prefix-icon="el-icon-price-tag"
+                  size="medium" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="4">
+              <el-form-item label="仓库" class="search-item">
+                <el-select v-model="searchForm.warehouse" placeholder="请选择仓库" clearable size="medium" style="width: 100%">
+                  <el-option v-for="warehouse in warehouseOptions" :key="warehouse.value" :label="warehouse.label" :value="warehouse.value">
+                    <span class="warehouse-option">
+                      <i :class="warehouse.icon"></i>
+                      {{ warehouse.label }}
+                    </span>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="4">
+              <el-form-item label="库存状态" class="search-item">
+                <el-select v-model="searchForm.stockStatus" placeholder="请选择状态" clearable size="medium" style="width: 100%">
+                  <el-option v-for="status in statusOptions" :key="status.value" :label="status.label" :value="status.value">
+                    <span class="status-option">
+                      <el-tag :type="status.type" size="mini">{{ status.label }}</el-tag>
+                    </span>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <!-- 操作按钮行 -->
+          <el-row class="search-actions">
+            <el-col :span="24">
+              <div class="action-buttons">
+                <div class="left-actions">
+                  <el-button type="primary" icon="el-icon-search" size="medium" @click="handleSearch" :loading="loading">查询</el-button>
+                  <el-button icon="el-icon-refresh-left" size="medium" @click="resetSearch">重置</el-button>
+                  <el-button
+                    v-if="hasSearchConditions"
+                    type="text"
+                    icon="el-icon-close"
+                    size="medium"
+                    @click="clearAllConditions"
+                    class="clear-all-btn">
+                    清空所有条件
+                  </el-button>
+                </div>
+
+                <div class="right-actions">
+                  <!-- 导出下拉菜单 -->
+                  <el-dropdown @command="handleExportCommand" trigger="click" placement="bottom-end">
+                    <el-button type="success" icon="el-icon-download" size="medium">
+                      导出数据
+                      <i class="el-icon-arrow-down el-icon--right"></i>
+                    </el-button>
+                    <el-dropdown-menu slot="dropdown" class="export-dropdown">
+                      <el-dropdown-item command="current">
+                        <i class="el-icon-document"></i>
+                        导出当前搜索结果
+                      </el-dropdown-item>
+                      <el-dropdown-item command="all" divided>
+                        <i class="el-icon-folder-opened"></i>
+                        导出所有数据
+                      </el-dropdown-item>
+                      <el-dropdown-item command="template" divided>
+                        <i class="el-icon-download"></i>
+                        下载导入模板
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </el-dropdown>
+
+                  <!-- 高级搜索切换 -->
+                  <el-button type="text" icon="el-icon-setting" size="medium" @click="toggleAdvancedSearch" class="advanced-toggle">
+                    {{ showAdvanced ? '收起' : '高级' }}
+                  </el-button>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+
+          <!-- 高级搜索面板（可折叠） -->
+          <el-collapse-transition>
+            <div v-show="showAdvanced" class="advanced-search-panel">
+              <el-divider content-position="left">
+                <span class="divider-text">
+                  <i class="el-icon-s-operation"></i>
+                  高级筛选
+                </span>
+              </el-divider>
+
+              <el-row :gutter="20">
+                <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <el-form-item label="库存范围" class="search-item">
+                    <el-input-number v-model="searchForm.minStock" :min="0" placeholder="最小库存" size="medium" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+
+                <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <el-form-item label="　" class="search-item">
+                    <!-- 占位符保持对齐 -->
+                    <el-input-number v-model="searchForm.maxStock" :min="0" placeholder="最大库存" size="medium" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+
+                <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <el-form-item label="更新时间" class="search-item">
+                    <el-date-picker
+                      v-model="searchForm.updateTimeRange"
+                      type="daterange"
+                      range-separator="至"
+                      start-placeholder="开始日期"
+                      end-placeholder="结束日期"
+                      size="medium"
+                      style="width: 100%"
+                      format="yyyy-MM-dd"
+                      value-format="yyyy-MM-dd" />
+                  </el-form-item>
+                </el-col>
+
+                <el-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <el-form-item label="单位" class="search-item">
+                    <el-select v-model="searchForm.unit" placeholder="请选择单位" clearable size="medium" style="width: 100%" filterable>
+                      <el-option v-for="unit in unitOptions" :key="unit" :label="unit" :value="unit" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </el-collapse-transition>
+
+          <!-- 搜索条件标签 -->
+          <div v-if="activeFilters.length > 0" class="filter-tags">
+            <span class="filter-label">当前筛选条件：</span>
+            <el-tag
+              v-for="filter in activeFilters"
+              :key="filter.key"
+              :type="filter.type"
+              size="small"
+              closable
+              @close="removeFilter(filter.key)"
+              class="filter-tag">
+              {{ filter.label }}：{{ filter.value }}
+            </el-tag>
+          </div>
+        </el-form>
+      </div>
     </el-card>
 
     <!-- 统计卡片 -->
@@ -551,6 +702,38 @@ export default {
       previewData: [],
       importResult: null,
 
+      // 搜索相关
+      showAdvanced: false, // 是否显示高级搜索
+      searchForm: {
+        materialCode: '',
+        materialName: '',
+        specification: '',
+        version: '',
+        warehouse: '',
+        stockStatus: '',
+        // 高级搜索字段
+        minStock: null,
+        maxStock: null,
+        updateTimeRange: null,
+        unit: ''
+      },
+
+      // 选项数据
+      warehouseOptions: [
+        { label: '原料仓', value: '原料仓', icon: 'el-icon-box' },
+        { label: '成品仓', value: '成品仓', icon: 'el-icon-goods' },
+        { label: '半成品仓', value: '半成品仓', icon: 'el-icon-cpu' },
+        { label: '耗材仓', value: '耗材仓', icon: 'el-icon-paperclip' }
+      ],
+
+      statusOptions: [
+        { label: '正常', value: 'normal', type: 'success' },
+        { label: '缺货', value: 'shortage', type: 'danger' },
+        { label: '超储', value: 'overstock', type: 'warning' }
+      ],
+
+      unitOptions: ['个', '件', '台', '套', '米', '公斤', '升', '包', '盒', '张'],
+
       // 统计信息
       validCount: 0,
       invalidCount: 0,
@@ -608,11 +791,92 @@ export default {
       }
     }
   },
+
+  computed: {
+    // 检查是否有搜索条件
+    hasSearchConditions() {
+      return Object.values(this.searchForm).some((value) => {
+        if (Array.isArray(value)) {
+          return value.length > 0
+        }
+        return value !== '' && value !== null && value !== undefined
+      })
+    },
+
+    // 当前激活的筛选条件
+    activeFilters() {
+      const filters = []
+      const form = this.searchForm
+
+      if (form.materialCode) {
+        filters.push({
+          key: 'materialCode',
+          label: '物料编码',
+          value: form.materialCode,
+          type: 'primary'
+        })
+      }
+
+      if (form.materialName) {
+        filters.push({
+          key: 'materialName',
+          label: '物料名称',
+          value: form.materialName,
+          type: 'primary'
+        })
+      }
+
+      if (form.specification) {
+        filters.push({
+          key: 'specification',
+          label: '规格型号',
+          value: form.specification,
+          type: 'primary'
+        })
+      }
+
+      if (form.version) {
+        filters.push({
+          key: 'version',
+          label: '版本',
+          value: form.version,
+          type: 'primary'
+        })
+      }
+
+      if (form.warehouse) {
+        const warehouse = this.warehouseOptions.find((w) => w.value === form.warehouse)
+        filters.push({
+          key: 'warehouse',
+          label: '仓库',
+          value: warehouse ? warehouse.label : form.warehouse,
+          type: 'success'
+        })
+      }
+
+      if (form.stockStatus) {
+        const status = this.statusOptions.find((s) => s.value === form.stockStatus)
+        filters.push({
+          key: 'stockStatus',
+          label: '库存状态',
+          value: status ? status.label : form.stockStatus,
+          type: status ? status.type : 'info'
+        })
+      }
+
+      return filters
+    }
+  },
   mounted() {
     this.loadData()
     this.loadStatistics()
   },
   methods: {
+    // 切换高级搜索
+    toggleAdvancedSearch() {
+      this.showAdvanced = !this.showAdvanced
+    },
+
     // 加载库存数据
     async loadData() {
       this.loading = true
@@ -770,15 +1034,20 @@ export default {
       this.loadData()
     },
 
-    // 重置搜索
+    // 重置搜索 - 更新版本
     resetSearch() {
+      this.$refs.searchForm.resetFields()
       this.searchForm = {
         materialCode: '',
         materialName: '',
-        specification: '', // 重置规格型号字段
-        version: '', // 重置版本字段
+        specification: '',
+        version: '',
         warehouse: '',
-        stockStatus: ''
+        stockStatus: '',
+        minStock: null,
+        maxStock: null,
+        updateTimeRange: null,
+        unit: ''
       }
       this.pagination.currentPage = 1
       this.loadData()
@@ -808,6 +1077,34 @@ export default {
       }
     },
 
+    // 清空所有搜索条件
+    clearAllConditions() {
+      this.searchForm = {
+        materialCode: '',
+        materialName: '',
+        specification: '',
+        version: '',
+        warehouse: '',
+        stockStatus: '',
+        minStock: null,
+        maxStock: null,
+        updateTimeRange: null,
+        unit: ''
+      }
+      this.pagination.currentPage = 1
+      this.loadData()
+    },
+    // 移除单个筛选条件
+    removeFilter(key) {
+      this.searchForm[key] = ''
+      if (key === 'updateTimeRange') {
+        this.searchForm[key] = null
+      }
+      if (key === 'minStock' || key === 'maxStock') {
+        this.searchForm[key] = null
+      }
+      this.handleSearch()
+    },
     // 导出数据 - 完善实现
     async exportData() {
       try {
@@ -1623,6 +1920,267 @@ export default {
 
 .search-card {
   margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
+
+  .search-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+
+      .header-icon {
+        font-size: 18px;
+        color: #409eff;
+        margin-right: 8px;
+      }
+
+      .header-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #303133;
+      }
+    }
+
+    .header-right {
+      display: flex;
+      gap: 8px;
+    }
+  }
+}
+
+.search-form-wrapper {
+  .advanced-search-form {
+    .search-row {
+      margin-bottom: 20px;
+
+      .search-item {
+        margin-bottom: 0;
+
+        ::v-deep .el-form-item__label {
+          font-weight: 500;
+          color: #606266;
+          font-size: 13px;
+          line-height: 20px;
+          padding-bottom: 8px;
+        }
+
+        ::v-deep .el-input__inner,
+        ::v-deep .el-select .el-input__inner {
+          border-radius: 8px;
+          border: 1px solid #dcdfe6;
+          transition: all 0.3s;
+
+          &:focus {
+            border-color: #409eff;
+            box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+          }
+
+          &:hover {
+            border-color: #c0c4cc;
+          }
+        }
+
+        ::v-deep .el-input__prefix {
+          color: #c0c4cc;
+        }
+      }
+    }
+
+    .search-actions {
+      .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 0 10px;
+        border-top: 1px solid #f0f0f0;
+
+        .left-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .clear-all-btn {
+            color: #f56c6c;
+
+            &:hover {
+              color: #f78989;
+            }
+          }
+        }
+
+        .right-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .advanced-toggle {
+            color: #909399;
+
+            &:hover {
+              color: #409eff;
+            }
+          }
+        }
+      }
+    }
+
+    .advanced-search-panel {
+      background: #fafbfc;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+
+      .divider-text {
+        font-size: 14px;
+        color: #606266;
+        font-weight: 500;
+
+        i {
+          margin-right: 4px;
+          color: #909399;
+        }
+      }
+    }
+
+    .filter-tags {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #409eff;
+
+      .filter-label {
+        font-size: 13px;
+        color: #606266;
+        font-weight: 500;
+        margin-right: 8px;
+      }
+
+      .filter-tag {
+        margin: 2px 4px;
+        border-radius: 4px;
+
+        &.el-tag--primary {
+          background-color: #ecf5ff;
+          border-color: #d9ecff;
+          color: #409eff;
+        }
+
+        &.el-tag--success {
+          background-color: #f0f9ff;
+          border-color: #c6f7ff;
+          color: #13ce66;
+        }
+
+        &.el-tag--warning {
+          background-color: #fdf6ec;
+          border-color: #faecd8;
+          color: #e6a23c;
+        }
+      }
+    }
+  }
+}
+
+// 下拉选项样式
+.warehouse-option,
+.status-option {
+  display: flex;
+  align-items: center;
+
+  i {
+    margin-right: 6px;
+    font-size: 14px;
+  }
+}
+
+.export-dropdown {
+  ::v-deep .el-dropdown-menu__item {
+    padding: 8px 16px;
+
+    i {
+      margin-right: 6px;
+      color: #909399;
+    }
+
+    &:hover i {
+      color: #409eff;
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .search-form-wrapper {
+    .advanced-search-form {
+      .search-actions {
+        .action-buttons {
+          flex-direction: column;
+          gap: 16px;
+
+          .left-actions,
+          .right-actions {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .search-header {
+    flex-direction: column;
+    gap: 12px;
+
+    .header-right {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
+// 动画效果
+.el-collapse-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+// 加载状态
+.search-loading {
+  ::v-deep .el-button {
+    position: relative;
+
+    &.is-loading {
+      pointer-events: none;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.35);
+        border-radius: inherit;
+      }
+    }
+  }
+}
+
+// 焦点状态优化
+.search-item {
+  ::v-deep .el-input:focus-within,
+  ::v-deep .el-select:focus-within {
+    .el-input__inner {
+      border-color: #409eff;
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+    }
+  }
 }
 
 .search-form {
