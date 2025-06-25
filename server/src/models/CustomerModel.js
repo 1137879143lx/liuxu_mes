@@ -1,58 +1,76 @@
 const mongoose = require('mongoose')
-const db = require('../config/db')
-const moment = require('moment')
 const mongoosePaginate = require('mongoose-paginate-v2')
+const db = require('../config/db')
 
-// 定义客户模型
 const customerSchema = new mongoose.Schema({
-  CustomerId: {
+  name: {
     type: String,
-    required: [true, '客户编号不能为空'],
+    required: true, //
     unique: true
-  }, // 客户编号
-  ShortName: {
+  }, // 客户名称
+  companyName: {
     type: String
-  }, // 客户简称
-  FullName: {
-    type: String
-  }, // 客户全称
-  Address: {
-    type: String
-  }, // 地址
-  Contact: {
+  }, // 公司名称
+  contactPerson: {
     type: String
   }, // 联系人
-  Tel: {
+  phone: {
     type: String
   }, // 电话
-  Email: {
+  email: {
     type: String
   }, // 邮箱
-  Phone: {
+  address: {
     type: String
-  }, // 手机
-  Tax: {
-    type: String
-  }, // 税号
-  CurrencyCode: {
-    type: String
-  }, // 货币代码
-  enable_flag: {
+  }, // 地址
+  type: {
     type: String,
-    default: 'Y'
-  }, // 是否启用标志
+    enum: ['individual', 'company'],
+    default: 'company'
+  }, // 客户类型：个人/公司
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
+  }, // 状态
+  creditLevel: {
+    type: String,
+    enum: ['A', 'B', 'C', 'D'],
+    default: 'B'
+  }, // 信用等级
+  remark: {
+    type: String
+  }, // 备注
   createTime: {
     type: Date,
-    default: Date.now() + 60 * 60 * 8 * 1000, // 东8区时间 加上8小时
-    get: (v) => moment(v).utcOffset(0).format('YYYY-MM-DD HH:mm:ss') // 东8区时间 加上8小时
+    default: () => new Date(Date.now() + 60 * 60 * 8 * 1000)
   }, // 创建时间
   updateTime: {
     type: Date,
-    default: Date.now() + 60 * 60 * 8 * 1000, // 东8区时间 加上8小时
-    get: (v) => moment(v).utcOffset(0).format('YYYY-MM-DD HH:mm:ss') // 东8区时间 加上8小时
-  } // 更新时间
+    default: () => new Date(Date.now() + 60 * 60 * 8 * 1000)
+  }, // 更新时间
+  enable_flag: {
+    type: String,
+    default: 'Y'
+  }, // 启用标志
+  deleteTime: {
+    type: Date
+  } // 删除时间
+})
+
+// 更新时间中间件
+customerSchema.pre('save', function (next) {
+  this.updateTime = new Date(Date.now() + 60 * 60 * 8 * 1000)
+  next()
+})
+
+customerSchema.pre('findOneAndUpdate', function (next) {
+  this.set({ updateTime: new Date(Date.now() + 60 * 60 * 8 * 1000) })
+  next()
 })
 
 customerSchema.plugin(mongoosePaginate)
-const Customer = db.model('customers', customerSchema)
-module.exports = Customer // 导出客户模型
+
+const Customer = db.model('Customer', customerSchema)
+
+module.exports = Customer

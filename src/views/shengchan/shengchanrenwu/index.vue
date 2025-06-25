@@ -141,15 +141,22 @@
           </el-table-column>
 
           <!-- 物料信息 -->
+          <!-- 修改物料信息列中的图片部分 -->
           <el-table-column label="物料信息" min-width="250">
             <template slot-scope="{ row }">
               <div class="material-info">
-                <div class="material-image">
-                  <img :src="row.image || '/shape_image.png'" alt="物料图片" />
+                <div class="material-image" @click="previewMaterialImage(row.image)" v-if="row.image">
+                  <img :src="row.image" alt="物料图片" />
+                  <div class="image-hover-overlay">
+                    <i class="el-icon-zoom-in"></i>
+                  </div>
+                </div>
+                <div class="material-image no-image" v-else>
+                  <i class="el-icon-picture-outline"></i>
                 </div>
                 <div class="material-details">
-                  <div class="material-code">{{ row.Material_code }}</div>
-                  <div class="material-name">{{ row.Material_name }}</div>
+                  <div class="material-code">{{ row.materialCode }}</div>
+                  <div class="material-name">{{ row.materialName }}</div>
                   <div class="material-specs">
                     <el-tag size="mini" type="info">{{ row.versions }}</el-tag>
                     <el-tag size="mini">{{ row.count }}件</el-tag>
@@ -161,6 +168,7 @@
           </el-table-column>
 
           <!-- 工序进度 -->
+          <!-- 修改工序标签显示 -->
           <el-table-column label="工序进度" min-width="350">
             <template slot-scope="{ row }">
               <div class="process-progress">
@@ -172,11 +180,12 @@
                 <div class="process-tags">
                   <el-tooltip v-for="(item, index) in row.process" :key="index" placement="top">
                     <div slot="content">
-                      <div>{{ item.submitter }}</div>
-                      <div style="color: #999; font-size: 12px">{{ item.Submission_time }}</div>
+                      <div>负责人: {{ item.submitter || '未分配' }}</div>
+                      <div>状态: {{ getProcessStatusText(item.status) }}</div>
+                      <div v-if="item.Submission_time" style="color: #999; font-size: 12px">完成时间: {{ item.Submission_time }}</div>
                     </div>
                     <el-tag :type="getProcessTagType(item.status)" :effect="getProcessTagEffect(item.status)" size="mini" class="process-tag">
-                      {{ item.process }}
+                      {{ item.process }} ({{ getProcessStatusText(item.status) }})
                     </el-tag>
                   </el-tooltip>
                 </div>
@@ -188,19 +197,20 @@
           <el-table-column label="交期状态" width="120" align="center">
             <template slot-scope="{ row }">
               <div class="delivery-status">
-                <el-tag :type="getDeliveryTagType(row.Delivery_time)" size="small">
-                  {{ formatDeliveryTime(row.Delivery_time) }}
+                <el-tag :type="getDeliveryTagType(row.clientDeliveryDate)" size="small">
+                  {{ formatDeliveryTime(row.clientDeliveryDate) }}
                 </el-tag>
-                <div class="days-left">{{ getDaysLeft(row.Delivery_time) }}</div>
+                <div class="days-left">{{ getDaysLeft(row.clientDeliveryDate) }}</div>
               </div>
             </template>
           </el-table-column>
 
           <!-- 状态 -->
+          <!-- 修改状态显示 -->
           <el-table-column label="状态" width="100" align="center">
             <template slot-scope="{ row }">
               <el-tag :type="getStatusTagType(row.status)" effect="dark">
-                {{ row.status }}
+                {{ getStatusText(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -226,9 +236,16 @@
                 <div class="task-number">{{ item.Batch_number }}</div>
                 <el-tag v-if="isUrgent(item)" type="danger" size="mini">紧急</el-tag>
               </div>
+              <!-- 修改卡片视图中的任务图片 -->
               <div class="task-card-body">
-                <div class="task-image">
+                <div class="task-image" @click="previewMaterialImage(item.image)" v-if="item.image">
                   <img :src="item.image || '/shape_image.png'" alt="任务图片" />
+                  <div class="image-hover-overlay">
+                    <i class="el-icon-zoom-in"></i>
+                  </div>
+                </div>
+                <div class="task-image no-image" v-else>
+                  <i class="el-icon-picture-outline"></i>
                 </div>
                 <div class="task-details">
                   <div class="detail-row">
@@ -237,7 +254,7 @@
                   </div>
                   <div class="detail-row">
                     <span class="label">物料:</span>
-                    <span>{{ item.Material_name }}</span>
+                    <span>{{ item.materialName }}</span>
                   </div>
                   <div class="detail-row">
                     <span class="label">数量:</span>
@@ -245,7 +262,7 @@
                   </div>
                   <div class="detail-row">
                     <span class="label">交期:</span>
-                    <span>{{ item.Delivery_time }}</span>
+                    <span>{{ item.clientDeliveryDate }}</span>
                   </div>
                 </div>
               </div>
@@ -288,18 +305,20 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="项目">
+          <!-- <el-form-item label="项目">
             <el-select v-model="filterForm.project" placeholder="选择项目" clearable style="width: 100%">
               <el-option v-for="project in projectList" :key="project" :label="project" :value="project" />
             </el-select>
-          </el-form-item>
+          </el-form-item> -->
 
+          <!-- 修改筛选器中的状态选择 -->
           <el-form-item label="状态">
             <el-select v-model="filterForm.status" placeholder="选择状态" clearable style="width: 100%">
               <el-option label="待开始" value="pending" />
               <el-option label="进行中" value="processing" />
               <el-option label="已完成" value="completed" />
               <el-option label="已暂停" value="paused" />
+              <el-option label="已取消" value="cancelled" />
             </el-select>
           </el-form-item>
 
@@ -369,9 +388,9 @@
 
           <el-row :gutter="20">
             <el-col :span="8">
-              <el-form-item label="交货日期" prop="Delivery_time">
+              <el-form-item label="交货日期" prop="clientDeliveryDate">
                 <el-date-picker
-                  v-model="addForm.Delivery_time"
+                  v-model="addForm.clientDeliveryDate"
                   type="date"
                   placeholder="选择交货日期"
                   format="yyyy-MM-dd"
@@ -381,11 +400,14 @@
             </el-col>
 
             <el-col :span="8">
+              <!-- 修改编辑表单中的状态选择 -->
               <el-form-item label="任务状态" prop="status">
-                <el-select v-model="addForm.status" placeholder="选择状态" style="width: 100%">
+                <el-select v-model="editForm.status" placeholder="选择状态" style="width: 100%">
                   <el-option label="待开始" value="pending"></el-option>
                   <el-option label="进行中" value="processing"></el-option>
+                  <el-option label="已完成" value="completed"></el-option>
                   <el-option label="已暂停" value="paused"></el-option>
+                  <el-option label="已取消" value="cancelled"></el-option>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -401,16 +423,16 @@
 
           <el-row :gutter="20">
             <el-col :span="8">
-              <el-form-item label="物料编码" prop="Material_code">
-                <el-input v-model="addForm.Material_code" placeholder="请输入物料编码">
+              <el-form-item label="物料编码" prop="materialCode">
+                <el-input v-model="addForm.materialCode" placeholder="请输入物料编码">
                   <el-button slot="append" icon="el-icon-search" @click="selectMaterial">选择</el-button>
                 </el-input>
               </el-form-item>
             </el-col>
 
             <el-col :span="8">
-              <el-form-item label="物料名称" prop="Material_name">
-                <el-input v-model="addForm.Material_name" placeholder="请输入物料名称"></el-input>
+              <el-form-item label="物料名称" prop="materialName">
+                <el-input v-model="addForm.materialName" placeholder="请输入物料名称"></el-input>
               </el-form-item>
             </el-col>
 
@@ -448,16 +470,37 @@
           <el-row :gutter="20">
             <el-col :span="24">
               <el-form-item label="物料图片">
-                <el-upload
-                  class="image-uploader"
-                  action="/api/upload"
-                  :show-file-list="false"
-                  :on-success="handleImageSuccess"
-                  :before-upload="beforeImageUpload">
-                  <img v-if="addForm.image" :src="addForm.image" class="image-preview" />
-                  <i v-else class="el-icon-plus image-uploader-icon"></i>
-                </el-upload>
-                <div class="upload-tip">只能上传jpg/png文件，且不超过2MB</div>
+                <div class="image-upload-container">
+                  <!-- 图片预览区域 -->
+                  <div class="image-preview-area" @click="handleImageClick" @paste="handlePaste" tabindex="0">
+                    <div v-if="addForm.image" class="image-preview-wrapper">
+                      <img :src="addForm.image" class="image-preview" alt="物料图片" />
+                      <div class="image-overlay">
+                        <div class="image-actions">
+                          <el-button size="mini" type="primary" icon="el-icon-view" @click.stop="previewImage(addForm.image)">预览</el-button>
+                          <el-button size="mini" type="warning" icon="el-icon-edit" @click.stop="selectImage">更换</el-button>
+                          <el-button size="mini" type="danger" icon="el-icon-delete" @click.stop="removeImage">删除</el-button>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="image-upload-placeholder">
+                      <i class="el-icon-plus"></i>
+                      <div class="upload-text">
+                        <p>点击上传图片</p>
+                        <p class="paste-tip">或按 Ctrl+V 粘贴图片</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 隐藏的文件输入 -->
+                  <input ref="fileInput" type="file" accept="image/*" style="display: none" @change="handleFileSelect" />
+
+                  <!-- 上传提示 -->
+                  <div class="upload-tips">
+                    <p class="tip-text">支持 JPG、PNG、GIF 格式，文件大小不超过 5MB</p>
+                    <p class="tip-text">可以直接粘贴剪贴板中的图片 (Ctrl+V)</p>
+                  </div>
+                </div>
               </el-form-item>
             </el-col>
           </el-row>
@@ -497,6 +540,7 @@
                 </el-col>
 
                 <el-col :span="6">
+                  <!-- 修改工序状态选择 -->
                   <el-form-item :prop="`process.${index}.status`" label="初始状态">
                     <el-select v-model="process.status" style="width: 100%">
                       <el-option label="未开始" :value="0"></el-option>
@@ -527,8 +571,8 @@
 
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="创建人" prop="author">
-                <el-input v-model="addForm.author" placeholder="请输入创建人"></el-input>
+              <el-form-item label="创建人" prop="createdBy">
+                <el-input v-model="addForm.createdBy" placeholder="请输入创建人"></el-input>
               </el-form-item>
             </el-col>
 
@@ -604,9 +648,9 @@
 
           <el-row :gutter="20">
             <el-col :span="8">
-              <el-form-item label="交货日期" prop="Delivery_time">
+              <el-form-item label="交货日期" prop="clientDeliveryDate">
                 <el-date-picker
-                  v-model="editForm.Delivery_time"
+                  v-model="editForm.clientDeliveryDate"
                   type="date"
                   placeholder="选择交货日期"
                   format="yyyy-MM-dd"
@@ -638,16 +682,16 @@
 
           <el-row :gutter="20">
             <el-col :span="8">
-              <el-form-item label="物料编码" prop="Material_code">
-                <el-input v-model="editForm.Material_code" placeholder="请输入物料编码">
+              <el-form-item label="物料编码" prop="materialCode">
+                <el-input v-model="editForm.materialCode" placeholder="请输入物料编码">
                   <el-button slot="append" icon="el-icon-search" @click="selectMaterialForEdit">选择</el-button>
                 </el-input>
               </el-form-item>
             </el-col>
 
             <el-col :span="8">
-              <el-form-item label="物料名称" prop="Material_name">
-                <el-input v-model="editForm.Material_name" placeholder="请输入物料名称"></el-input>
+              <el-form-item label="物料名称" prop="materialName">
+                <el-input v-model="editForm.materialName" placeholder="请输入物料名称"></el-input>
               </el-form-item>
             </el-col>
 
@@ -682,19 +726,41 @@
             </el-col>
           </el-row>
 
+          <!-- 在编辑任务对话框中也添加相同的图片上传组件 -->
           <el-row :gutter="20">
             <el-col :span="24">
               <el-form-item label="物料图片">
-                <el-upload
-                  class="image-uploader"
-                  action="/api/upload"
-                  :show-file-list="false"
-                  :on-success="handleEditImageSuccess"
-                  :before-upload="beforeImageUpload">
-                  <img v-if="editForm.image" width="100" :src="editForm.image" class="image-preview" />
-                  <i v-else class="el-icon-plus image-uploader-icon"></i>
-                </el-upload>
-                <div class="upload-tip">只能上传jpg/png文件，且不超过2MB</div>
+                <div class="image-upload-container">
+                  <!-- 图片预览区域 -->
+                  <div class="image-preview-area" @click="handleEditImageClick" @paste="handleEditPaste" tabindex="0">
+                    <div v-if="editForm.image" class="image-preview-wrapper">
+                      <img :src="editForm.image" class="image-preview" alt="物料图片" />
+                      <div class="image-overlay">
+                        <div class="image-actions">
+                          <el-button size="mini" type="primary" icon="el-icon-view" @click.stop="previewImage(editForm.image)">预览</el-button>
+                          <el-button size="mini" type="warning" icon="el-icon-edit" @click.stop="selectEditImage">更换</el-button>
+                          <el-button size="mini" type="danger" icon="el-icon-delete" @click.stop="removeEditImage">删除</el-button>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="image-upload-placeholder">
+                      <i class="el-icon-plus"></i>
+                      <div class="upload-text">
+                        <p>点击上传图片</p>
+                        <p class="paste-tip">或按 Ctrl+V 粘贴图片</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 隐藏的文件输入 -->
+                  <input ref="editFileInput" type="file" accept="image/*" style="display: none" @change="handleEditFileSelect" />
+
+                  <!-- 上传提示 -->
+                  <div class="upload-tips">
+                    <p class="tip-text">支持 JPG、PNG、GIF 格式，文件大小不超过 5MB</p>
+                    <p class="tip-text">可以直接粘贴剪贴板中的图片 (Ctrl+V)</p>
+                  </div>
+                </div>
               </el-form-item>
             </el-col>
           </el-row>
@@ -813,7 +879,7 @@
           <el-row :gutter="20">
             <el-col :span="12">
               <el-form-item label="创建人">
-                <el-input :value="editForm.author" disabled></el-input>
+                <el-input :value="editForm.createdBy" disabled></el-input>
               </el-form-item>
             </el-col>
 
@@ -862,20 +928,70 @@
         <el-button @click="updateTask" type="primary" :loading="updateLoading">确认修改</el-button>
       </div>
     </el-dialog>
+
+    <!-- 图片预览对话框 -->
+    <el-dialog title="图片预览" :visible.sync="imagePreviewVisible" width="60%" class="image-preview-dialog">
+      <div class="image-preview-container">
+        <img :src="previewImageUrl" alt="预览图片" class="preview-image" />
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="imagePreviewVisible = false">关闭</el-button>
+        <el-button type="primary" @click="downloadImage">下载图片</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
+import {
+  fetchProductionTasks,
+  createProductionTask,
+  updateProductionTask,
+  deleteProductionTask,
+  batchDeleteProductionTasks,
+  fetchTaskStatistics,
+  generateTaskNumber,
+  exportTasks
+} from '@/api/productionTask'
+import { getMaterialsSearch } from '@/api/materials'
+import { getCustomerOptions } from '@/api/Customer' // 新增导入
+
 export default {
   name: 'ProductionTask',
   data() {
     return {
-      isEditMode: false, // 添加编辑模式标识
-      // 视图控制
+      // 图片预览相关
+      imagePreviewVisible: false,
+      previewImageUrl: '',
+      // 状态选项
+      statusOptions: [
+        { label: '待开始', value: 'pending' },
+        { label: '进行中', value: 'processing' },
+        { label: '已完成', value: 'completed' },
+        { label: '已暂停', value: 'paused' },
+        { label: '已取消', value: 'cancelled' }
+      ],
 
+      // 工序状态选项
+      processStatusOptions: [
+        { label: '未开始', value: 0 },
+        { label: '进行中', value: 1 },
+        { label: '已完成', value: 2 }
+      ],
+
+      // 难度等级选项
+      difficultyOptions: [
+        { label: '低', value: 1 },
+        { label: '普通', value: 2 },
+        { label: '较高', value: 3 },
+        { label: '紧急', value: 4 },
+        { label: '非常紧急', value: 5 }
+      ],
+
+      isEditMode: false,
       drawer: false,
       listLoading: false,
-      viewMode: 'table', // table | card
+      viewMode: 'table',
 
       // 搜索和筛选
       searchText: '',
@@ -891,40 +1007,20 @@ export default {
       },
 
       // 分页
-      currentPage: 1,
-      pageSize: 20,
-      total: 0,
+      pagination: {
+        currentPage: 1,
+        pageSize: 20,
+        total: 0
+      },
 
       // 数据
-      list: [
-        // 示例数据
-        {
-          id: 1,
-          Batch_number: 'PT202401001',
-          client: '华为技术',
-          porject: '5G基站项目',
-          Material_code: 'MT-001-A',
-          Material_name: '铝合金散热器',
-          versions: '1.2',
-          count: 500,
-          type: '加工件',
-          Delivery_time: '2024-02-15',
-          status: '正在加工',
-          image: '/shape_image.png',
-          description: '用于5G基站的散热器，要求高精度加工',
-
-          Difficulty: 4,
-          man_hour: 120,
-          author: '张工',
-          process: [
-            { process: '下料', status: 2, man_hour: 8, submitter: '李师傅', Submission_time: '2024-01-10 09:00' },
-            { process: '粗加工', status: 1, man_hour: 24, submitter: '王师傅', Submission_time: '2024-01-11 14:00' },
-            { process: '精加工', status: 0, man_hour: 16, submitter: '', Submission_time: '' },
-            { process: '检验', status: 0, man_hour: 4, submitter: '', Submission_time: '' }
-          ]
-        }
-        // ... 更多示例数据
-      ],
+      list: [],
+      statistics: {
+        pending: 0,
+        processing: 0,
+        completed: 0,
+        urgent: 0
+      },
 
       // 选中项
       multipleSelection: [],
@@ -932,28 +1028,30 @@ export default {
       // 新增任务相关
       addDialogVisible: false,
       submitLoading: false,
+      // 修改 addForm 初始化
       addForm: {
-        Batch_number: '',
+        Batch_number: '', // 修改字段名
         client: '',
-        porject: '',
-        Material_code: '',
-        Material_name: '',
-        versions: '1.0',
-        count: 1,
+        porject: '', // 修改字段名 (注意拼写)
+        materialCode: '',
+        materialName: '',
+        versions: '1.0', // 修改字段名
+        count: 1, // 修改字段名
         type: '',
-        Delivery_time: '',
+        clientDeliveryDate: '',
         status: 'pending',
-        Difficulty: 3,
-        man_hour: 0,
-        author: '',
+        Difficulty: 2, // 修改字段名
+        man_hour: 0, // 修改字段名
+        createdBy: '',
         image: '',
         description: '',
         process: [
+          // 修改工序字段结构
           {
-            process: '下料',
+            process: '下料', // 修改字段名
             status: 0,
-            man_hour: 0,
-            submitter: '',
+            man_hour: 0, // 修改字段名
+            submitter: '', // 修改字段名
             Submission_time: ''
           }
         ]
@@ -963,63 +1061,35 @@ export default {
       editDialogVisible: false,
       updateLoading: false,
       currentEditId: null,
-      editForm: {
-        Batch_number: '',
-        client: '',
-        porject: '',
-        Material_code: '',
-        Material_name: '',
-        versions: '1.0',
-        count: 1,
-        type: '',
-        Delivery_time: '',
-        status: 'pending',
-        Difficulty: 3,
-        man_hour: 0,
-        author: '',
-        createTime: '',
-        modifier: '',
-        modifyReason: '',
-        image: '',
-        description: '',
-        process: []
-      },
-
-      // 编辑表单验证规则
-      editRules: {
-        client: [{ required: true, message: '请选择客户', trigger: 'change' }],
-
-        Material_code: [{ required: true, message: '请输入物料编码', trigger: 'blur' }],
-        Material_name: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
-        count: [{ required: true, message: '请输入生产数量', trigger: 'blur' }],
-        Delivery_time: [{ required: true, message: '请选择交货日期', trigger: 'change' }],
-        modifier: [{ required: true, message: '请输入修改人', trigger: 'blur' }]
-      },
+      editForm: {},
 
       // 表单验证规则
+      // 在 data() 中修改表单验证规则
       addRules: {
-        Batch_number: [{ required: true, message: '请输入任务编号', trigger: 'blur' }],
         client: [{ required: true, message: '请选择客户', trigger: 'change' }],
+        materialCode: [{ required: true, message: '请输入物料编码', trigger: 'blur' }],
+        materialName: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
+        count: [{ required: true, message: '请输入生产数量', trigger: 'blur' }], // 修改字段名
+        clientDeliveryDate: [{ required: true, message: '请选择交货日期', trigger: 'change' }],
+        createdBy: [{ required: true, message: '请输入创建人', trigger: 'blur' }]
+      },
 
-        Material_code: [{ required: true, message: '请输入物料编码', trigger: 'blur' }],
-        Material_name: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
-        count: [{ required: true, message: '请输入生产数量', trigger: 'blur' }],
-        Delivery_time: [{ required: true, message: '请选择交货日期', trigger: 'change' }],
-        author: [{ required: true, message: '请输入创建人', trigger: 'blur' }]
+      editRules: {
+        client: [{ required: true, message: '请选择客户', trigger: 'change' }],
+        materialCode: [{ required: true, message: '请输入物料编码', trigger: 'blur' }],
+        materialName: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
+        count: [{ required: true, message: '请输入生产数量', trigger: 'blur' }], // 修改字段名
+        clientDeliveryDate: [{ required: true, message: '请选择交货日期', trigger: 'change' }]
       },
 
       // 物料选择
       materialDialogVisible: false,
       materialSearch: '',
       selectedMaterial: null,
-      materialList: [
-        { code: 'MT-001-A', name: '铝合金散热器', type: '加工件', unit: '件', spec: '100x50x20mm' },
-        { code: 'MT-002-B', name: '不锈钢支架', type: '加工件', unit: '件', spec: '200x100x30mm' },
-        { code: 'MT-003-C', name: '铜制接头', type: '原材料', unit: '个', spec: 'φ20mm' }
-      ],
+      materialList: [],
 
       // 选项数据
-      clientOptions: ['华为技术', '中兴通讯', '比亚迪', '宁德时代', '腾讯科技'],
+      clientOptions: [],
       userOptions: [
         { id: 1, name: '张工' },
         { id: 2, name: '李师傅' },
@@ -1030,17 +1100,21 @@ export default {
   },
 
   computed: {
+    // 修改 filteredList，现在主要用于本地搜索辅助
     filteredList() {
       let result = this.list
 
-      if (this.searchText) {
+      // 本地搜索（作为服务器筛选的补充）
+      if (this.searchText && this.searchText !== this.filterForm.keyword) {
         const searchLower = this.searchText.toLowerCase()
         result = result.filter(
           (item) =>
-            item.Batch_number.toLowerCase().includes(searchLower) ||
-            item.client.toLowerCase().includes(searchLower) ||
-            item.Material_name.toLowerCase().includes(searchLower) ||
-            item.Material_code.toLowerCase().includes(searchLower)
+            (item.Batch_number && item.Batch_number.toLowerCase().includes(searchLower)) ||
+            (item.client && item.client.toLowerCase().includes(searchLower)) ||
+            (item.materialName && item.materialName.toLowerCase().includes(searchLower)) ||
+            (item.materialCode && item.materialCode.toLowerCase().includes(searchLower)) ||
+            (item.statusText && item.statusText.includes(this.searchText)) ||
+            (item.difficultyText && item.difficultyText.includes(this.searchText))
         )
       }
 
@@ -1048,70 +1122,556 @@ export default {
     },
 
     clientList() {
-      return [...new Set(this.list.map((item) => item.client))]
+      return [...new Set(this.list.map((item) => item.client).filter(Boolean))]
     },
 
     projectList() {
-      return [...new Set(this.list.map((item) => item.porject))]
+      return [...new Set(this.list.map((item) => item.porject).filter(Boolean))]
     },
 
-    // 过滤物料列表
     filteredMaterials() {
       if (!this.materialSearch) return this.materialList
 
       const search = this.materialSearch.toLowerCase()
-      return this.materialList.filter((item) => item.code.toLowerCase().includes(search) || item.name.toLowerCase().includes(search))
+      return this.materialList.filter(
+        (item) => (item.code && item.code.toLowerCase().includes(search)) || (item.name && item.name.toLowerCase().includes(search))
+      )
+    },
+    // 筛选条件数量
+    filterCount() {
+      return this.getFilterCount()
+    },
+
+    // 是否有激活的筛选条件
+    hasActiveFilters() {
+      return this.filterCount > 0
+    },
+
+    // 物料筛选列表
+    filteredMaterials() {
+      if (!this.materialSearch) return this.materialList
+
+      const search = this.materialSearch.toLowerCase()
+      return this.materialList.filter(
+        (item) => (item.code && item.code.toLowerCase().includes(search)) || (item.name && item.name.toLowerCase().includes(search))
+      )
     }
   },
 
   mounted() {
     this.loadData()
+    this.loadStatistics()
+    this.loadClientOptions() // 新增调用
   },
 
   methods: {
-    // 数据加载
-    loadData() {
-      this.listLoading = true
-      // 模拟API调用
-      setTimeout(() => {
-        this.total = this.list.length
-        this.listLoading = false
-      }, 1000)
+    // 应用筛选
+    applyFilter() {
+      // 重置到第一页
+      this.pagination.currentPage = 1
+
+      // 执行筛选数据加载
+      this.loadData()
+
+      // 关闭筛选抽屉
+      this.drawer = false
+
+      // 显示筛选结果提示
+      this.showFilterResult()
     },
 
-    refreshData() {
-      this.loadData()
+    // 重置筛选
+    resetFilter() {
+      this.filterForm = {
+        keyword: '',
+        client: '',
+        project: '',
+        status: '',
+        urgency: 0,
+        deliveryDateRange: [],
+        createDateRange: [],
+        includeCompleted: true
+      }
+
+      // 立即应用重置后的筛选
+      this.applyFilter()
+    },
+
+    // 显示筛选结果
+    showFilterResult() {
+      const activeFilters = this.getActiveFilters()
+      if (activeFilters.length > 0) {
+        const filterText = activeFilters.join('、')
+        this.$message.success(`已应用筛选条件：${filterText}`)
+      } else {
+        this.$message.info('已清除所有筛选条件')
+      }
+    },
+
+    // 获取激活的筛选条件
+    getActiveFilters() {
+      const filters = []
+
+      if (this.filterForm.keyword) {
+        filters.push(`关键字: ${this.filterForm.keyword}`)
+      }
+
+      if (this.filterForm.client) {
+        filters.push(`客户: ${this.filterForm.client}`)
+      }
+
+      if (this.filterForm.project) {
+        filters.push(`项目: ${this.filterForm.project}`)
+      }
+
+      if (this.filterForm.status) {
+        const statusText = this.getStatusText(this.filterForm.status)
+        filters.push(`状态: ${statusText}`)
+      }
+
+      if (this.filterForm.urgency > 0) {
+        filters.push(`紧急程度: ${this.getDifficultyText(this.filterForm.urgency)}`)
+      }
+
+      if (this.filterForm.deliveryDateRange && this.filterForm.deliveryDateRange.length === 2) {
+        filters.push(`交期: ${this.filterForm.deliveryDateRange[0]} ~ ${this.filterForm.deliveryDateRange[1]}`)
+      }
+
+      if (this.filterForm.createDateRange && this.filterForm.createDateRange.length === 2) {
+        filters.push(`创建时间: ${this.filterForm.createDateRange[0]} ~ ${this.filterForm.createDateRange[1]}`)
+      }
+
+      if (!this.filterForm.includeCompleted) {
+        filters.push('排除已完成任务')
+      }
+
+      return filters
+    },
+
+    // 新增方法：加载客户选项
+    async loadClientOptions() {
+      try {
+        const response = await getCustomerOptions()
+        if (response.code === 200) {
+          // 根据后端返回的数据结构调整
+          this.clientOptions = response.data.map((item) => item.name || item.companyName || item)
+        }
+      } catch (error) {
+        console.error('加载客户选项失败:', error)
+        // 降级方案：使用默认客户列表
+        //this.clientOptions = ['华为技术', '中兴通讯', '比亚迪', '宁德时代', '腾讯科技']
+      }
+    },
+
+    // 预览物料图片
+    previewMaterialImage(imageUrl) {
+      if (!imageUrl) {
+        this.$message.warning('暂无图片')
+        return
+      }
+      this.previewImage(imageUrl)
+    },
+
+    // 新增任务的图片处理方法
+    handleImageClick() {
+      if (!this.addForm.image) {
+        this.selectImage()
+      }
+    },
+
+    selectImage() {
+      this.$refs.fileInput.click()
+    },
+
+    handleFileSelect(event) {
+      const file = event.target.files[0]
+      if (file) {
+        this.processImageFile(file, 'add')
+      }
+      // 清空input值，允许重复选择同一文件
+      event.target.value = ''
+    },
+
+    // 处理粘贴事件
+    handlePaste(event) {
+      const items = (event.clipboardData || window.clipboardData).items
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile()
+          this.processImageFile(blob, 'add')
+          event.preventDefault()
+          break
+        }
+      }
+    },
+
+    // 编辑任务的图片处理方法
+    handleEditImageClick() {
+      if (!this.editForm.image) {
+        this.selectEditImage()
+      }
+    },
+
+    selectEditImage() {
+      this.$refs.editFileInput.click()
+    },
+
+    handleEditFileSelect(event) {
+      const file = event.target.files[0]
+      if (file) {
+        this.processImageFile(file, 'edit')
+      }
+      // 清空input值，允许重复选择同一文件
+      event.target.value = ''
+    },
+
+    // 处理编辑时的粘贴事件
+    handleEditPaste(event) {
+      const items = (event.clipboardData || window.clipboardData).items
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile()
+          this.processImageFile(blob, 'edit')
+          event.preventDefault()
+          break
+        }
+      }
+    },
+
+    // 统一的图片文件处理方法
+    async processImageFile(file, mode = 'add') {
+      // 验证文件类型
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+      if (!allowedTypes.includes(file.type)) {
+        this.$message.error('只支持 JPG、PNG、GIF 格式的图片!')
+        return false
+      }
+
+      // 验证文件大小 (5MB)
+      const maxSize = 5 * 1024 * 1024
+      if (file.size > maxSize) {
+        this.$message.error('图片大小不能超过 5MB!')
+        return false
+      }
+
+      try {
+        // 显示加载状态
+        const loadingMessage = this.$message({
+          message: '正在处理图片...',
+          type: 'info',
+          duration: 0
+        })
+
+        // 压缩图片（如果需要）
+        const processedFile = await this.compressImage(file)
+
+        // 转换为base64或上传到服务器
+        const imageUrl = await this.convertToImageUrl(processedFile)
+
+        // 更新对应的表单数据
+        if (mode === 'add') {
+          this.addForm.image = imageUrl
+        } else if (mode === 'edit') {
+          this.editForm.image = imageUrl
+        }
+
+        loadingMessage.close()
+        this.$message.success('图片上传成功!')
+
+        return true
+      } catch (error) {
+        console.error('图片处理失败:', error)
+        this.$message.error('图片处理失败: ' + (error.message || '未知错误'))
+        return false
+      }
+    },
+
+    // 图片压缩方法
+    compressImage(file, maxWidth = 800, maxHeight = 600, quality = 0.8) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        const img = new Image()
+
+        img.onload = () => {
+          // 计算压缩后的尺寸
+          let { width, height } = img
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height)
+            width *= ratio
+            height *= ratio
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          // 绘制压缩后的图片
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // 转换为blob
+          canvas.toBlob(resolve, file.type, quality)
+        }
+
+        img.src = URL.createObjectURL(file)
+      })
+    },
+
+    // 转换图片为URL
+    convertToImageUrl(file) {
+      return new Promise((resolve, reject) => {
+        // 方式1: 转换为base64 (适合小图片)
+        if (file.size < 1024 * 1024) {
+          // 小于1MB用base64
+          const reader = new FileReader()
+          reader.onload = (e) => resolve(e.target.result)
+          reader.onerror = (e) => reject(new Error('文件读取失败'))
+          reader.readAsDataURL(file)
+        } else {
+          // 方式2: 上传到服务器 (适合大图片)
+          this.uploadImageToServer(file).then(resolve).catch(reject)
+        }
+      })
+    },
+
+    // 上传图片到服务器
+    async uploadImageToServer(file) {
+      const formData = new FormData()
+      formData.append('image', file)
+
+      try {
+        // 这里需要你的后端上传接口
+        const response = await this.$http.post('/api/upload/image', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+
+        if (response.data.code === 200) {
+          return response.data.data.url
+        } else {
+          throw new Error(response.data.message || '上传失败')
+        }
+      } catch (error) {
+        console.error('图片上传失败:', error)
+        throw new Error('图片上传失败: ' + (error.message || '网络错误'))
+      }
+    },
+
+    // 删除图片
+    removeImage() {
+      this.$confirm('确定要删除这张图片吗？', '确认删除', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      })
+        .then(() => {
+          this.addForm.image = ''
+          this.$message.success('图片已删除')
+        })
+        .catch(() => {
+          // 用户取消
+        })
+    },
+
+    removeEditImage() {
+      this.$confirm('确定要删除这张图片吗？', '确认删除', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      })
+        .then(() => {
+          this.editForm.image = ''
+          this.$message.success('图片已删除')
+        })
+        .catch(() => {
+          // 用户取消
+        })
+    },
+
+    // 预览图片
+    previewImage(imageUrl) {
+      this.previewImageUrl = imageUrl
+      this.imagePreviewVisible = true
+    },
+
+    // 下载图片
+    downloadImage() {
+      if (this.previewImageUrl) {
+        const link = document.createElement('a')
+        link.href = this.previewImageUrl
+        link.download = `物料图片_${Date.now()}.jpg`
+        link.click()
+      }
+    },
+
+    // 修改原有的上传成功回调（保持兼容性）
+    handleImageSuccess(response, file) {
+      // 如果使用原有的上传组件
+      if (response && response.url) {
+        this.addForm.image = response.url
+      } else {
+        this.addForm.image = URL.createObjectURL(file.raw)
+      }
+    },
+
+    handleEditImageSuccess(response, file) {
+      // 如果使用原有的上传组件
+      if (response && response.url) {
+        this.editForm.image = response.url
+      } else {
+        this.editForm.image = URL.createObjectURL(file.raw)
+      }
+    },
+
+    // 修改原有的上传前验证
+    beforeImageUpload(file) {
+      return this.processImageFile(file, 'add')
+    },
+
+    // 修改数据加载方法，支持筛选参数
+    async loadData() {
+      this.listLoading = true
+      try {
+        // 构建筛选参数
+        const params = {
+          page: this.pagination.currentPage,
+          pageSize: this.pagination.pageSize,
+          ...this.buildFilterParams()
+        }
+
+        console.log('筛选参数:', params)
+
+        const response = await fetchProductionTasks(params)
+        if (response.code === 200) {
+          // 转换后端数据为前端显示格式
+          this.list = (response.data.list || []).map((item) => ({
+            ...item,
+            statusText: this.getStatusText(item.status),
+            difficultyText: this.getDifficultyText(item.Difficulty),
+            // 转换工序状态为中文
+            process: (item.process || []).map((proc) => ({
+              ...proc,
+              statusText: this.getProcessStatusText(proc.status)
+            }))
+          }))
+          this.pagination.total = response.data.total || 0
+        }
+      } catch (error) {
+        console.error('加载任务列表失败:', error)
+        this.$message.error('加载数据失败')
+      } finally {
+        this.listLoading = false
+      }
+    },
+
+    // 构建筛选参数
+    buildFilterParams() {
+      const params = {}
+
+      // 关键字搜索
+      if (this.filterForm.keyword) {
+        params.keyword = this.filterForm.keyword.trim()
+      }
+
+      // 客户筛选
+      if (this.filterForm.client) {
+        params.client = this.filterForm.client
+      }
+
+      // 项目筛选
+      if (this.filterForm.project) {
+        params.project = this.filterForm.project
+      }
+
+      // 状态筛选
+      if (this.filterForm.status) {
+        params.status = this.filterForm.status
+      }
+
+      // 紧急程度筛选
+      if (this.filterForm.urgency > 0) {
+        params.urgency = this.filterForm.urgency
+      }
+
+      // 交期范围筛选
+      if (this.filterForm.deliveryDateRange && this.filterForm.deliveryDateRange.length === 2) {
+        params.deliveryStartDate = this.filterForm.deliveryDateRange[0]
+        params.deliveryEndDate = this.filterForm.deliveryDateRange[1]
+      }
+
+      // 创建时间范围筛选
+      if (this.filterForm.createDateRange && this.filterForm.createDateRange.length === 2) {
+        params.createStartDate = this.filterForm.createDateRange[0]
+        params.createEndDate = this.filterForm.createDateRange[1]
+      }
+
+      // 是否包含已完成任务
+      params.includeCompleted = this.filterForm.includeCompleted
+
+      return params
+    },
+
+    async loadStatistics() {
+      try {
+        const response = await fetchTaskStatistics()
+        if (response.code === 200) {
+          this.statistics = response.data
+        }
+      } catch (error) {
+        console.error('加载统计数据失败:', error)
+      }
+    },
+
+    async refreshData() {
+      await Promise.all([this.loadData(), this.loadStatistics()])
       this.$message.success('数据已刷新')
     },
 
     // 统计方法
     getStatusCount(status) {
-      return this.list.filter((item) => item.status === status).length
+      // 支持英文和中文状态查询
+      const statusMap = {
+        pending: ['pending', '待开始'],
+        processing: ['processing', '进行中'],
+        completed: ['completed', '已完成'],
+        paused: ['paused', '已暂停'],
+        cancelled: ['cancelled', '已取消']
+      }
+
+      let count = 0
+      if (statusMap[status]) {
+        statusMap[status].forEach((statusKey) => {
+          count += this.list.filter((item) => item.status === statusKey).length
+        })
+      }
+
+      return this.statistics[status] || count
     },
 
     getUrgentCount() {
-      return this.list.filter((item) => item.Difficulty >= 4).length
+      return this.statistics.urgent || 0
     },
 
     // 工序相关方法
-    getProcessProgress(processes) {
-      if (!processes || processes.length === 0) return 0
-      const completed = processes.filter((p) => p.status === 2).length
-      return Math.round((completed / processes.length) * 100)
+    getProcessProgress(process) {
+      if (!process || process.length === 0) return 0
+      const completed = process.filter((p) => p.status === 2).length
+      return Math.round((completed / process.length) * 100)
     },
 
-    getTotalWorkHours(processes) {
-      if (!processes) return 0
-      return processes.reduce((total, p) => total + (p.man_hour || 0), 0)
+    getTotalWorkHours(process) {
+      if (!process) return 0
+      return process.reduce((total, p) => total + (p.man_hour || 0), 0)
     },
 
-    getProgressColor(processes) {
-      const progress = this.getProcessProgress(processes)
+    getProgressColor(process) {
+      const progress = this.getProcessProgress(process)
       if (progress < 30) return '#f56c6c'
       if (progress < 70) return '#e6a23c'
       return '#67c23a'
     },
-
+    // 修改工序标签类型判断
     getProcessTagType(status) {
       switch (status) {
         case 2:
@@ -1162,19 +1722,48 @@ export default {
     },
 
     // 状态相关方法
+    // 修改状态相关方法为中文显示
     getStatusTagType(status) {
       switch (status) {
         case 'completed':
+        case '已完成':
           return 'success'
         case 'processing':
+        case '进行中':
           return 'primary'
         case 'pending':
+        case '待开始':
           return 'info'
         case 'paused':
+        case '已暂停':
           return 'warning'
+        case 'cancelled':
+        case '已取消':
+          return 'danger'
         default:
           return 'info'
       }
+    },
+    // 状态转换为中文显示
+    getStatusText(status) {
+      const statusMap = {
+        pending: '待开始',
+        processing: '进行中',
+        completed: '已完成',
+        paused: '已暂停',
+        cancelled: '已取消'
+      }
+      return statusMap[status] || status
+    },
+    getDifficultyText(difficulty) {
+      const difficultyMap = {
+        1: '低',
+        2: '普通',
+        3: '较高',
+        4: '紧急',
+        5: '非常紧急'
+      }
+      return difficultyMap[difficulty] || '普通'
     },
 
     isUrgent(row) {
@@ -1202,14 +1791,82 @@ export default {
 
     handleSearch() {
       // 搜索逻辑已在computed中处理
+      // 将搜索框的内容同步到筛选表单
+      this.filterForm.keyword = this.searchText
+      this.applyFilter()
+    },
+
+    quickFilter(type, value) {
+      switch (type) {
+        case 'status':
+          this.filterForm.status = value
+          break
+        case 'client':
+          this.filterForm.client = value
+          break
+        case 'urgency':
+          this.filterForm.urgency = value
+          break
+        default:
+          break
+      }
+      this.applyFilter()
+    },
+
+    // 清除特定筛选条件
+    clearFilter(type) {
+      switch (type) {
+        case 'keyword':
+          this.filterForm.keyword = ''
+          this.searchText = ''
+          break
+        case 'client':
+          this.filterForm.client = ''
+          break
+        case 'project':
+          this.filterForm.project = ''
+          break
+        case 'status':
+          this.filterForm.status = ''
+          break
+        case 'urgency':
+          this.filterForm.urgency = 0
+          break
+        case 'deliveryDate':
+          this.filterForm.deliveryDateRange = []
+          break
+        case 'createDate':
+          this.filterForm.createDateRange = []
+          break
+        default:
+          break
+      }
+      this.applyFilter()
+    },
+
+    // 获取筛选条件数量
+    getFilterCount() {
+      let count = 0
+
+      if (this.filterForm.keyword) count++
+      if (this.filterForm.client) count++
+      if (this.filterForm.project) count++
+      if (this.filterForm.status) count++
+      if (this.filterForm.urgency > 0) count++
+      if (this.filterForm.deliveryDateRange.length === 2) count++
+      if (this.filterForm.createDateRange.length === 2) count++
+      if (!this.filterForm.includeCompleted) count++
+
+      return count
     },
 
     handleSelectionChange(selection) {
       this.multipleSelection = selection
     },
 
+    // 分页处理
     handleSizeChange(val) {
-      this.pageSize = val
+      this.pagination.pageSize = val
       this.loadData()
     },
 
@@ -1233,32 +1890,32 @@ export default {
     addTask() {
       this.resetAddForm()
       this.generateTaskNumber()
-      this.addForm.author = this.$store.getters.name || '当前用户'
+      this.addForm.createdBy = this.$store.getters.name || '当前用户'
       this.addDialogVisible = true
     },
 
-    // 重置新增表单
+    // 重置表单
     resetAddForm() {
       this.addForm = {
         Batch_number: '',
         client: '',
         porject: '',
-        Material_code: '',
-        Material_name: '',
+        materialCode: '',
+        materialName: '',
         versions: '1.0',
         count: 1,
         type: '',
-        Delivery_time: '',
-        status: 'pending',
-        Difficulty: 3,
+        clientDeliveryDate: '',
+        status: '待开始', // 使用中文状态
+        Difficulty: 2,
         man_hour: 0,
-        author: '',
+        createdBy: '',
         image: '',
         description: '',
         process: [
           {
             process: '下料',
-            status: 0,
+            status: 0, // 使用数字状态
             man_hour: 0,
             submitter: '',
             Submission_time: ''
@@ -1266,7 +1923,6 @@ export default {
         ]
       }
 
-      // 清除表单验证
       this.$nextTick(() => {
         if (this.$refs.addForm) {
           this.$refs.addForm.clearValidate()
@@ -1275,15 +1931,42 @@ export default {
     },
 
     // 生成任务编号
-    generateTaskNumber() {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      const day = String(now.getDate()).padStart(2, '0')
-      const sequence = String(this.list.length + 1).padStart(3, '0')
-
-      this.addForm.Batch_number = `PT${year}${month}${day}${sequence}`
+    async generateTaskNumber() {
+      try {
+        const response = await generateTaskNumber()
+        if (response.code === 200) {
+          this.addForm.Batch_number = response.data.taskNumber
+        }
+      } catch (error) {
+        console.error('生成任务编号失败:', error)
+        // 降级方案：本地生成
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        const sequence = String(this.list.length + 1).padStart(3, '0')
+        this.addForm.Batch_number = `PT${year}${month}${day}${sequence}`
+      }
     },
+
+    // 物料搜索
+    async searchMaterials() {
+      if (!this.materialSearch) return
+
+      try {
+        const response = await getMaterialsSearch({
+          keyword: this.materialSearch,
+          pageSize: 50
+        })
+        if (response.code === 200) {
+          this.materialList = response.data.list || []
+        }
+      } catch (error) {
+        console.error('搜索物料失败:', error)
+      }
+    },
+
+    // 以下保持不变
 
     // 工序管理
     addProcess() {
@@ -1315,8 +1998,8 @@ export default {
 
     confirmMaterialSelect() {
       if (this.selectedMaterial) {
-        this.addForm.Material_code = this.selectedMaterial.code
-        this.addForm.Material_name = this.selectedMaterial.name
+        this.addForm.materialCode = this.selectedMaterial.code
+        this.addForm.materialName = this.selectedMaterial.name
         this.addForm.type = this.selectedMaterial.type
         this.materialDialogVisible = false
         this.selectedMaterial = null
@@ -1350,45 +2033,70 @@ export default {
     },
 
     // 提交任务
-    submitTask(showMessage = true) {
-      this.$refs.addForm.validate((valid) => {
-        if (valid) {
-          this.submitLoading = true
+    async submitTask(showMessage = true) {
+      try {
+        await this.$refs.addForm.validate()
 
-          // 计算总工时
-          const totalHours = this.addForm.process.reduce((total, p) => total + (p.man_hour || 0), 0)
-          this.addForm.man_hour = totalHours
+        this.submitLoading = true
 
-          // 模拟API调用
-          setTimeout(() => {
-            const newTask = {
-              id: Date.now(),
-              ...this.addForm,
-              createTime: new Date().toISOString()
-            }
-
-            this.list.unshift(newTask)
-            this.total = this.list.length
-
-            this.submitLoading = false
-            this.addDialogVisible = false
-
-            if (showMessage) {
-              this.$message.success('任务创建成功')
-            } else {
-              this.$message.success('草稿保存成功')
-            }
-          }, 1000)
-        } else {
-          this.$message.error('请完善必填信息')
+        // 转换中文状态为英文存储
+        const submitData = {
+          ...this.addForm,
+          // 状态转换：中文 -> 英文
+          status: this.convertStatusToEn(this.addForm.status),
+          // 工序状态转换
+          process: this.addForm.process.map((proc) => ({
+            ...proc,
+            status: typeof proc.status === 'string' ? this.convertProcessStatusToNum(proc.status) : proc.status
+          })),
+          estimatedHours: this.addForm.process.reduce((total, p) => total + (p.man_hour || 0), 0)
         }
-      })
+
+        const response = await createProductionTask(submitData)
+
+        if (response.code === 200 || response.code === 201) {
+          this.$message.success(showMessage ? '任务创建成功' : '草稿保存成功')
+          this.addDialogVisible = false
+          this.resetAddForm()
+          await this.loadData()
+          await this.loadStatistics()
+        } else {
+          this.$message.error(response.message || '创建失败')
+        }
+      } catch (error) {
+        console.error('创建任务失败:', error)
+        this.$message.error('创建失败：' + (error.message || '网络错误'))
+      } finally {
+        this.submitLoading = false
+      }
     },
+
+    convertProcessStatusToNum(statusText) {
+      const statusMap = {
+        未开始: 0,
+        进行中: 1,
+        已完成: 2
+      }
+      return statusMap[statusText] !== undefined ? statusMap[statusText] : statusText
+    },
+
+    // 状态转换辅助方法
+    convertStatusToEn(chineseStatus) {
+      const statusMap = {
+        待开始: 'pending',
+        进行中: 'processing',
+        已完成: 'completed',
+        已暂停: 'paused',
+        已取消: 'cancelled'
+      }
+      return statusMap[chineseStatus] || chineseStatus
+    },
+
     // 编辑任务相关方法
-    editTask(row) {
-      this.currentEditId = row.id
-      this.fillEditForm(row)
-      this.editForm.modifier = this.$store.getters.name || '当前用户'
+    // 编辑任务
+    async editTask(row) {
+      this.currentEditId = row._id || row.id
+      this.editForm = JSON.parse(JSON.stringify(row))
       this.editDialogVisible = true
     },
 
@@ -1398,16 +2106,16 @@ export default {
         Batch_number: row.Batch_number,
         client: row.client,
         porject: row.porject,
-        Material_code: row.Material_code,
-        Material_name: row.Material_name,
+        materialCode: row.materialCode,
+        materialName: row.materialName,
         versions: row.versions,
         count: row.count,
         type: row.type,
-        Delivery_time: row.Delivery_time,
+        clientDeliveryDate: row.clientDeliveryDate,
         status: row.status,
         Difficulty: row.Difficulty,
         man_hour: row.man_hour,
-        author: row.author,
+        createdBy: row.createdBy,
         createTime: row.createTime ? new Date(row.createTime).toLocaleString() : '未知',
         modifier: '',
         modifyReason: '',
@@ -1465,12 +2173,12 @@ export default {
     confirmMaterialSelect() {
       if (this.selectedMaterial) {
         if (this.isEditMode) {
-          this.editForm.Material_code = this.selectedMaterial.code
-          this.editForm.Material_name = this.selectedMaterial.name
+          this.editForm.materialCode = this.selectedMaterial.code
+          this.editForm.materialName = this.selectedMaterial.name
           this.editForm.type = this.selectedMaterial.type
         } else {
-          this.addForm.Material_code = this.selectedMaterial.code
-          this.addForm.Material_name = this.selectedMaterial.name
+          this.addForm.materialCode = this.selectedMaterial.code
+          this.addForm.materialName = this.selectedMaterial.name
           this.addForm.type = this.selectedMaterial.type
         }
 
@@ -1508,64 +2216,35 @@ export default {
     },
 
     // 更新任务
-    updateTask(showMessage = true) {
-      this.$refs.editForm.validate((valid) => {
-        if (valid) {
-          this.updateLoading = true
+    async updateTask(showMessage = true) {
+      try {
+        await this.$refs.editForm.validate()
 
-          // 计算总工时
-          const totalHours = this.editForm.process.reduce((total, p) => total + (p.man_hour || 0), 0)
-          this.editForm.man_hour = totalHours
+        this.updateLoading = true
 
-          // 模拟API调用
-          setTimeout(() => {
-            // 找到要更新的任务
-            const taskIndex = this.list.findIndex((item) => item.id === this.currentEditId)
+        const response = await updateProductionTask(this.currentEditId, this.editForm)
 
-            if (taskIndex !== -1) {
-              // 创建修改记录
-              const modifyRecord = {
-                modifier: this.editForm.modifier,
-                modifyTime: new Date().toISOString(),
-                modifyReason: this.editForm.modifyReason,
-                changes: this.getChanges(this.list[taskIndex], this.editForm)
-              }
-
-              // 更新任务数据
-              const updatedTask = {
-                ...this.list[taskIndex],
-                ...this.editForm,
-                modifyTime: new Date().toISOString(),
-                modifyRecords: this.list[taskIndex].modifyRecords || []
-              }
-
-              // 添加修改记录
-              updatedTask.modifyRecords.push(modifyRecord)
-
-              // 更新列表中的任务
-              this.$set(this.list, taskIndex, updatedTask)
-            }
-
-            this.updateLoading = false
-            this.editDialogVisible = false
-            this.currentEditId = null
-
-            if (showMessage) {
-              this.$message.success('任务修改成功')
-            } else {
-              this.$message.success('草稿保存成功')
-            }
-          }, 1000)
+        if (response.code === 200) {
+          this.$message.success(showMessage ? '任务修改成功' : '草稿保存成功')
+          this.editDialogVisible = false
+          this.currentEditId = null
+          await this.loadData()
+          await this.loadStatistics()
         } else {
-          this.$message.error('请完善必填信息')
+          this.$message.error(response.message || '修改失败')
         }
-      })
+      } catch (error) {
+        console.error('修改任务失败:', error)
+        this.$message.error('修改失败：' + (error.message || '网络错误'))
+      } finally {
+        this.updateLoading = false
+      }
     },
 
     // 获取变更内容
     getChanges(oldData, newData) {
       const changes = []
-      const compareFields = ['client', 'porject', 'Material_code', 'Material_name', 'count', 'Delivery_time', 'status', 'Difficulty']
+      const compareFields = ['client', 'porject', 'materialCode', 'materialName', 'count', 'clientDeliveryDate', 'status', 'Difficulty']
 
       compareFields.forEach((field) => {
         if (oldData[field] !== newData[field]) {
@@ -1578,6 +2257,87 @@ export default {
       })
 
       return changes
+    },
+
+    // 删除任务
+    async deleteTask(row) {
+      try {
+        await this.$confirm('确定要删除这个生产任务吗？', '确认删除', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+
+        const response = await deleteProductionTask(row._id || row.id)
+        if (response.code === 200) {
+          this.$message.success('删除成功')
+          await this.loadData()
+          await this.loadStatistics()
+        } else {
+          this.$message.error(response.message || '删除失败')
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('删除任务失败:', error)
+          this.$message.error('删除失败')
+        }
+      }
+    },
+
+    // 批量删除
+    async batchDelete() {
+      if (this.multipleSelection.length === 0) {
+        this.$message.warning('请先选择要删除的任务')
+        return
+      }
+
+      try {
+        await this.$confirm(`确定要删除选中的 ${this.multipleSelection.length} 个任务吗？`, '批量删除', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+
+        const ids = this.multipleSelection.map((item) => item._id || item.id)
+        const response = await batchDeleteProductionTasks({ ids })
+
+        if (response.code === 200) {
+          this.$message.success(`成功删除 ${this.multipleSelection.length} 个任务`)
+          this.multipleSelection = []
+          await this.loadData()
+          await this.loadStatistics()
+        } else {
+          this.$message.error(response.message || '批量删除失败')
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('批量删除失败:', error)
+          this.$message.error('批量删除失败')
+        }
+      }
+    },
+
+    // 导出数据
+    async exportData() {
+      try {
+        const response = await exportTasks(this.filterForm)
+
+        // 创建下载链接
+        const blob = new Blob([response], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `生产任务数据_${new Date().getTime()}.xlsx`
+        link.click()
+        window.URL.revokeObjectURL(url)
+
+        this.$message.success('导出成功')
+      } catch (error) {
+        console.error('导出失败:', error)
+        this.$message.error('导出失败')
+      }
     }
   }
 }
@@ -1759,6 +2519,37 @@ export default {
   }
 }
 
+// 添加图片加载失败的处理样式
+.material-image {
+  img {
+    &[src=''],
+    &:not([src]) {
+      display: none;
+    }
+  }
+
+  // 图片加载失败时的占位符
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #f5f7fa
+      url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="%23c0c4cc" d="M304 456a72 72 0 1 0 0-144 72 72 0 0 0 0 144zm0-96a24 24 0 1 1 0 48 24 24 0 0 1 0-48z"/><path fill="%23c0c4cc" d="M893.3 293.3L730.7 130.7c-7.5-7.5-16.7-13-26.7-16V112c0-17.7-14.3-32-32-32H112c-17.7 0-32 14.3-32 32v800c0 17.7 14.3 32 32 32h560c17.7 0 32-14.3 32-32V732.4l94.3-94.3c6.2-6.2 16.4-6.2 22.6 0l94.3 94.3c6.2 6.2 6.2 16.4 0 22.6L638.1 638.1c-6.2-6.2-16.4-6.2-22.6 0L521.8 732.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0l71.1-71.1 156.5 156.5c18.7 18.7 49.1 18.7 67.9 0l94.3-94.3c18.7-18.7 18.7-49.1 0-67.9L677.3 421.6c-18.7-18.7-49.1-18.7-67.9 0L480 551c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0l107.9-107.9L893.3 316.1c6.2-6.2 6.2-16.4 0-22.8z"/></svg>')
+      center/24px no-repeat;
+    display: none;
+  }
+
+  &:not(:has(img)),
+  &:has(img[src='']) {
+    &::after {
+      display: block;
+    }
+  }
+}
+// 物料图片样式增强
 .material-info {
   display: flex;
   align-items: center;
@@ -1769,11 +2560,63 @@ export default {
     height: 50px;
     border-radius: 4px;
     overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
 
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    .image-hover-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+
+      i {
+        color: white;
+        font-size: 18px;
+      }
+    }
+
+    &:hover .image-hover-overlay {
+      opacity: 1;
+    }
+
+    // 无图片状态
+    &.no-image {
+      background: #f5f7fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed #dcdfe6;
+      cursor: default;
+
+      &:hover {
+        transform: none;
+        box-shadow: none;
+      }
+
+      i {
+        font-size: 20px;
+        color: #c0c4cc;
+      }
     }
   }
 
@@ -1784,18 +2627,33 @@ export default {
       font-weight: 600;
       color: #303133;
       margin-bottom: 4px;
+      font-size: 14px;
     }
 
     .material-name {
-      font-size: 14px;
+      font-size: 13px;
       color: #606266;
       margin-bottom: 8px;
+      line-height: 1.2;
+
+      // 超长文本省略
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .material-specs {
       display: flex;
       gap: 4px;
       flex-wrap: wrap;
+
+      .el-tag {
+        font-size: 11px;
+        height: 20px;
+        line-height: 18px;
+        padding: 0 6px;
+      }
     }
   }
 }
@@ -1842,77 +2700,73 @@ export default {
   }
 }
 
-// 卡片视图样式
+// 卡片视图中的图片样式
 .card-view {
-  padding: 20px 0;
-
   .task-card {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .task-card-header {
-      padding: 15px;
-      background: #f8f9fa;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      .task-number {
-        font-weight: 600;
-        color: #303133;
-      }
-    }
-
     .task-card-body {
-      padding: 15px;
-      display: flex;
-      gap: 15px;
-
       .task-image {
         width: 80px;
         height: 80px;
         border-radius: 4px;
         overflow: hidden;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: scale(1.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
 
         img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          transition: transform 0.3s ease;
         }
-      }
 
-      .task-details {
-        flex: 1;
-
-        .detail-row {
+        .image-hover-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
           display: flex;
-          margin-bottom: 8px;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: opacity 0.3s ease;
 
-          .label {
-            width: 50px;
-            color: #909399;
-            font-size: 14px;
+          i {
+            color: white;
+            font-size: 24px;
           }
         }
-      }
-    }
 
-    .task-card-footer {
-      padding: 15px;
-      border-top: 1px solid #ebeef5;
+        &:hover .image-hover-overlay {
+          opacity: 1;
+        }
 
-      .card-actions {
-        margin-top: 10px;
-        text-align: right;
+        // 无图片状态
+        &.no-image {
+          background: #f5f7fa;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px dashed #dcdfe6;
+          cursor: default;
+
+          &:hover {
+            transform: none;
+            box-shadow: none;
+          }
+
+          i {
+            font-size: 32px;
+            color: #c0c4cc;
+          }
+        }
       }
     }
   }
@@ -2165,5 +3019,176 @@ export default {
       padding: 10px;
     }
   }
+}
+
+// 图片上传容器样式
+.image-upload-container {
+  .image-preview-area {
+    width: 200px;
+    height: 150px;
+    border: 2px dashed #d9d9d9;
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    outline: none;
+
+    &:hover {
+      border-color: #409eff;
+    }
+
+    &:focus {
+      border-color: #409eff;
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    }
+
+    .image-preview-wrapper {
+      width: 100%;
+      height: 100%;
+      position: relative;
+
+      .image-preview {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .image-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+
+        .image-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+      }
+
+      &:hover .image-overlay {
+        opacity: 1;
+      }
+    }
+
+    .image-upload-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #8c939d;
+
+      i {
+        font-size: 32px;
+        margin-bottom: 12px;
+      }
+
+      .upload-text {
+        text-align: center;
+
+        p {
+          margin: 4px 0;
+          font-size: 14px;
+
+          &.paste-tip {
+            font-size: 12px;
+            color: #bbb;
+          }
+        }
+      }
+    }
+  }
+
+  .upload-tips {
+    margin-top: 12px;
+
+    .tip-text {
+      margin: 4px 0;
+      font-size: 12px;
+      color: #909399;
+      line-height: 1.4;
+    }
+  }
+}
+
+// 图片预览对话框样式优化
+.image-preview-dialog {
+  .image-preview-container {
+    text-align: center;
+    padding: 20px;
+
+    .preview-image {
+      max-width: 100%;
+      max-height: 70vh; // 限制最大高度，避免图片过大
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      cursor: zoom-in;
+      transition: transform 0.3s ease;
+
+      &:hover {
+        transform: scale(1.02);
+      }
+    }
+  }
+
+  .dialog-footer {
+    text-align: right;
+    padding: 15px 20px;
+
+    .el-button {
+      margin-left: 10px;
+    }
+  }
+}
+
+// 响应式适配
+@media (max-width: 768px) {
+  .image-upload-container {
+    .image-preview-area {
+      width: 150px;
+      height: 120px;
+    }
+  }
+
+  .image-preview-dialog {
+    width: 90% !important;
+
+    .image-preview-container {
+      padding: 15px;
+
+      .preview-image {
+        max-height: 300px;
+      }
+    }
+  }
+}
+
+// 拖拽上传样式增强
+.image-preview-area {
+  &.drag-over {
+    border-color: #409eff;
+    background-color: rgba(64, 158, 255, 0.1);
+  }
+}
+
+// 加载状态样式
+.image-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #409eff;
+  font-size: 14px;
 }
 </style>
