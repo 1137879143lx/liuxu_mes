@@ -306,9 +306,9 @@ export const constantRoutes = [
         meta: { title: '检验记录', icon: 'documentation', affix: true }
       },
       {
-        path: 'index5',
-        component: () => import('@/views/documentation/index'),
-        name: 'caigou',
+        path: 'pinzhibaobiao',
+        component: () => import('@/views/pingzhi/pinzhibaobiao/index.vue'),
+        name: 'pinzhibaobiao',
         meta: { title: '品质报表', icon: 'documentation', affix: true }
       },
       {
@@ -333,8 +333,8 @@ export const constantRoutes = [
     children: [
       {
         path: 'index',
-        component: () => import('@/views/documentation/index'),
-        name: 'caigoushenqing',
+        component: () => import('@/views/shezhi/xitongshezhi/index'),
+        name: 'xitongshezhi',
         meta: { title: '系统设置', icon: 'documentation', affix: true }
       },
       {
@@ -364,9 +364,9 @@ export const constantRoutes = [
         meta: { title: '机台设置', icon: 'documentation', affix: true }
       },
       {
-        path: 'index5',
-        component: () => import('@/views/documentation/index'),
-        name: 'caigou',
+        path: 'yonghushezhi',
+        component: () => import('@/views/shezhi/yonghushezhi/index'),
+        name: 'yonghushezhi',
         meta: { title: '用户设置', icon: 'documentation', affix: true }
       }
     ]
@@ -383,7 +383,6 @@ export const constantRoutes = [
       roles: ['admin', 'editor'] // you can set roles in root nav
     },
     children: [
-
       {
         path: 'ruku',
         component: () => import('@/views/cangku/ruku/index'),
@@ -407,8 +406,7 @@ export const constantRoutes = [
         component: () => import('@/views/cangku/saomaruku/index'),
         name: 'saomaruku',
         meta: { title: '物料标识卡', icon: 'documentation', affix: true }
-      },
-
+      }
     ]
   }
   // ,

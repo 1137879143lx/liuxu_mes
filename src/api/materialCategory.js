@@ -1,96 +1,66 @@
 import request from '@/utils/request'
 
+const API_PREFIX = '/api/materialcategory'
 
+export default {
+  // 获取物料类型列表
+  getList(params) {
+    return request({
+      url: `${API_PREFIX}`,
+      method: 'get',
+      params
+    })
+  },
 
-export function add(data) {
-  return request({
-    url: '/api/materialCategory',
-    method: 'post',
-    data
-  })
-}
+  // 创建物料类型
+  create(data) {
+    return request({
+      url: `${API_PREFIX}`,
+      method: 'post',
+      data
+    })
+  },
 
-export function put(id, data) {
-  return request({
-    url: `/api/materialCategory/${id}`,
-    method: 'put',
-    data
-  })
-}
+  // 更新物料类型
+  update(id, data) {
+    return request({
+      url: `${API_PREFIX}/${id}`,
+      method: 'put',
+      data
+    })
+  },
 
-export function deletes(id) {
-  return request({
-    url: `/api/materialCategory/${id}`,
-    method: 'delete'
-  })
-}
+  // 删除物料类型
+  delete(id) {
+    return request({
+      url: `${API_PREFIX}/${id}`,
+      method: 'delete'
+    })
+  },
 
+  // 更新状态
+  updateStatus(id, status) {
+    return request({
+      url: `${API_PREFIX}/${id}/status`,
+      method: 'patch',
+      data: { status }
+    })
+  },
 
-// 获取物料类别列表
-export function getlist(params) {
-  return request({
-    url: '/api/material-categories',
-    method: 'get',
-    params
-  })
-}
+  // 根据ID获取详情
+  getById(id) {
+    return request({
+      url: `${API_PREFIX}/${id}`,
+      method: 'get'
+    })
+  },
 
-// 获取物料类别列表（别名）
-export function getMaterialCategories(params) {
-  return request({
-    url: '/api/material-categories',
-    method: 'get',
-    params
-  })
-}
-
-// 获取物料类别详情
-export function getMaterialCategory(id) {
-  return request({
-    url: `/api/material-categories/${id}`,
-    method: 'get'
-  })
-}
-
-// 创建物料类别
-export function createMaterialCategory(data) {
-  return request({
-    url: '/api/material-categories',
-    method: 'post',
-    data
-  })
-}
-
-// 更新物料类别
-export function updateMaterialCategory(id, data) {
-  return request({
-    url: `/api/material-categories/${id}`,
-    method: 'put',
-    data
-  })
-}
-
-// 删除物料类别
-export function deleteMaterialCategory(id) {
-  return request({
-    url: `/api/material-categories/${id}`,
-    method: 'delete'
-  })
-}
-
-// 检查类别编码
-export function checkCategoryCode(params) {
-  return request({
-    url: '/api/material-categories/check-code',
-    method: 'get',
-    params
-  })
-}
-
-// 获取启用的类别列表（用于下拉选择）
-export function getActiveCategories() {
-  return request({
-    url: '/api/material-categories/active',
-    method: 'get'
-  })
+  // 批量删除
+  batchDelete(ids) {
+    return request({
+      url: `${API_PREFIX}/batch`,
+      method: 'delete',
+      data: { ids }
+    })
+  }
 }

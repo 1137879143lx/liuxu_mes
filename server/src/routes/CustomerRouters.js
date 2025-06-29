@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const Customer = require('../models/customerModel')
+const Customer = require('../models/CustomerModel')
 
 // 获取客户列表
 router.get('/', async (req, res) => {

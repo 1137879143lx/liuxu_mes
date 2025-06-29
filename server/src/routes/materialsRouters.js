@@ -36,24 +36,30 @@ const upload = multer({
   }
 })
 
-// 物料管理路由
-// 生成物料编码 - 放在其他路由之前
-// 特殊路由放在前面，避免被通用路由匹配
-router.get('/deleted', materialController.getDeletedMaterials)
-router.get('/check-code', materialController.checkCode)
-router.get('/template', materialController.downloadTemplate)
-router.get('/export', materialController.exportMaterials)
-router.post('/generate-code', materialController.generateMaterialCode)
-router.post('/import', upload.single('file'), materialController.importMaterials)
-router.post('/batch-delete', materialController.batchDeleteMaterials)
-router.put('/:id/restore', materialController.restoreMaterial)
-router.delete('/:id/permanent', materialController.permanentDeleteMaterial)
-
-// 通用CRUD路由
+// 基础CRUD路由
 router.get('/', materialController.getMaterials)
 router.get('/:id', materialController.getMaterial)
 router.post('/', materialController.createMaterial)
 router.put('/:id', materialController.updateMaterial)
 router.delete('/:id', materialController.deleteMaterial)
+
+// 批量操作路由
+router.post('/batch-delete', materialController.batchDeleteMaterials)
+router.post('/batch', materialController.batchCreateMaterials) // 新增批量创建路由
+
+// 回收站相关路由
+router.get('/deleted/list', materialController.getDeletedMaterials)
+router.put('/:id/restore', materialController.restoreMaterial)
+router.delete('/:id/permanent', materialController.permanentDeleteMaterial)
+
+// 工具路由
+router.get('/check/code', materialController.checkCode)
+router.post('/generate-code', materialController.generateMaterialCode)
+router.post('/batch-generate-codes', materialController.batchGenerateMaterialCodes) // 新增批量生成编码路由
+
+// 导入导出路由
+router.post('/import', upload.single('file'), materialController.importMaterials)
+router.get('/export', materialController.exportMaterials)
+router.get('/template/download', materialController.downloadTemplate)
 
 module.exports = router

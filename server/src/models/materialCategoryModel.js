@@ -1,69 +1,70 @@
 const mongoose = require('mongoose')
+const mongoosePaginate = require('mongoose-paginate-v2')
 const db = require('../config/db')
 
-const materialCategorySchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, '物料类别名称不能为空'],
-    trim: true,
-    unique: true
+const materialCategorySchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, '物料类型名称不能为空'],
+      unique: true,
+      trim: true,
+      maxlength: [50, '物料类型名称不能超过50个字符']
+    },
+    code: {
+      type: String,
+      required: [true, '类别编码不能为空'],
+      unique: true,
+      trim: true,
+      maxlength: [20, '类别编码不能超过20个字符']
+    },
+    unit: {
+      type: String,
+      required: [true, '单位不能为空'],
+      trim: true,
+      maxlength: [10, '单位不能超过10个字符']
+    },
+    codeRule: {
+      type: String,
+      trim: true,
+      maxlength: [100, '编码规则不能超过100个字符']
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: [500, '描述不能超过500个字符']
+    },
+    status: {
+      type: Number,
+      enum: [0, 1], // 0: 禁用, 1: 启用
+      default: 1
+    },
+    createTime: {
+      type: Date,
+      default: Date.now,
+      get: (v) => (v ? new Date(v).toLocaleString('zh-CN') : '')
+    },
+    updateTime: {
+      type: Date,
+      default: Date.now
+    }
   },
-  code: {
-    type: String,
-    required: [true, '物料类别编码不能为空'],
-    trim: true,
-    unique: true,
-    uppercase: true
-  },
-  unit: {
-    type: String,
-    required: [true, '计量单位不能为空'],
-    trim: true
-  },
-  description: {
-    type: String,
-    trim: true
-  },
-  status: {
-    type: String,
-    enum: ['启用', '禁用'],
-    default: '启用'
-  },
-  // 编码生成规则
-  codeRule: {
-    type: String,
-    trim: true,
-    default: 'AUTO' // AUTO: 自动生成, MANUAL: 手动输入
-  },
-  // 编码前缀
-  codePrefix: {
-    type: String,
-    trim: true,
-    uppercase: true
-  },
-  isDeleted: {
-    type: Boolean,
-    default: false
+  {
+    timestamps: { createdAt: 'createTime', updatedAt: 'updateTime' },
+    versionKey: false,
+    toJSON: { getters: true }
   }
-}, {
-  timestamps: true,
-  versionKey: false
-})
+)
 
-// 在保存前设置编码前缀
+// 更新时间中间件
 materialCategorySchema.pre('save', function (next) {
-  if (!this.codePrefix && this.code) {
-    this.codePrefix = this.code
+  if (!this.isNew) {
+    this.updateTime = new Date()
   }
   next()
 })
 
-// 创建索引
-materialCategorySchema.index({ name: 1 })
-materialCategorySchema.index({ code: 1 })
-materialCategorySchema.index({ status: 1 })
-materialCategorySchema.index({ isDeleted: 1 })
-
+materialCategorySchema.plugin(mongoosePaginate)
 const MaterialCategory = db.model('MaterialCategory', materialCategorySchema)
 
 module.exports = MaterialCategory

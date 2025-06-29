@@ -68,7 +68,7 @@ app.use('/api/customers', customerRouter) // // 使用路由
 app.use('/api/suppliers', supplierRouter) // // 使用路由
 app.use('/api/cutting_stock_list', cuttingStockListRouter) // // 使用路由
 app.use('/api/pr_ReplenishmentRequisition', prReplenishmentRequisitionRouter) // // 使用路由
-app.use('/api/materialCategory', MaterialCategoryRouter) // // 使用路由
+app.use('/api/materialcategory', MaterialCategoryRouter) // // 使用路由
 app.use('/api/units', UnitRouter) // // 使用路由
 app.use('/api/materials', MaterialRouter) // // 使用路由
 app.use('/api', uploadRouter) // // 使用路由

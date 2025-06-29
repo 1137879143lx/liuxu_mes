@@ -160,11 +160,28 @@ export function getClassOfMaterials(params) {
   })
 }
 
-
 // 生成物料编码
 export function generateMaterialCode(data) {
   return request({
     url: '/api/materials/generate-code',
+    method: 'post',
+    data
+  })
+}
+
+// 批量创建物料
+export function batchCreateMaterials(data) {
+  return request({
+    url: '/api/materials/batch',
+    method: 'post',
+    data
+  })
+}
+
+// 批量生成物料编码 - 新增
+export function batchGenerateMaterialCodes(data) {
+  return request({
+    url: '/api/materials/batch-generate-codes',
     method: 'post',
     data
   })

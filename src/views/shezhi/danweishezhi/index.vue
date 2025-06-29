@@ -1,467 +1,1027 @@
 <template>
-  <div class="card-container">
-    <el-tabs v-model="activeName" @tab-click="handleClick">
-      <el-tab-pane label="物料类型" name="物料类型">
-        <!-- 物料类型 -->
-        <el-card size="mini" shadow="hover">
-          <el-form :inline="true" class="search-form" size="mini">
-            <el-form-item label="物料类型">
-              <el-input v-model="MaterialType_Form.name" placeholder="物料类型" />
-            </el-form-item>
-            <el-form-item label="类别编码">
-              <el-input v-model="MaterialType_Form.code" placeholder="请输入类别编码" />
-            </el-form-item>
-            <el-form-item label="单位">
-              <el-input v-model="MaterialType_Form.unit" placeholder="请输入单位" />
-            </el-form-item>
-            <el-form-item label="编码规则">
-              <el-input v-model="MaterialType_Form.codeRule" placeholder="编码规则" @keyup.enter.native="MaterialType_add" />
-            </el-form-item>
-            <el-form-item style="float: right">
-              <el-button type="primary" @click="MaterialType_add">新增</el-button>
-            </el-form-item>
-          </el-form>
-          <el-table :data="MaterialType_tableData" size="mini" height="700">
-            <el-table-column label="#" type="index" />
-            <el-table-column prop="name" label="物料类型" />
-            <el-table-column prop="code" label="类别编码" />
-            <el-table-column prop="unit" label="单位" />
-            <el-table-column prop="codeRule" label="编码规则" />
-            <el-table-column label="操作">
-              <template slot-scope="scope">
-                <el-button type="text" size="mini" @click="MaterialType_remove(scope.row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+  <div class="material-category-management">
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h2 class="page-title">
+            <i class="el-icon-collection-tag"></i>
+            物料类型管理
+          </h2>
+          <div class="page-description">管理系统中的物料分类和编码规则</div>
+        </div>
+        <div class="header-actions">
+          <el-button type="primary" icon="el-icon-plus" size="small" @click="showAddDialog">新增物料类型</el-button>
+        </div>
+      </div>
+    </div>
 
-          <el-pagination
-            v-if="MaterialType_total > MaterialType_pageSize"
-            :current-page="MaterialType_currentPage"
-            :page-size="MaterialType_pageSize"
-            :total="MaterialType_total"
-            small
-            @current-change="MaterialType_handlePageChange" />
-        </el-card>
-      </el-tab-pane>
-      <el-tab-pane label="表面处理" name="表面处理">
-        <!-- 表面处理 -->
-        <el-card size="mini" shadow="hover">
-          <el-form :inline="true" class="search-form" size="mini">
-            <el-form-item label="表面处理">
-              <el-input v-model="Surface_Form.name" placeholder="请输入表面处理方式" />
-            </el-form-item>
-            <el-form-item label="单价">
-              <el-input v-model="Surface_Form.price" placeholder="单价 mm²/元" @keyup.enter.native="Surface_Form_add" />
-            </el-form-item>
-            <el-form-item style="float: right">
-              <el-button type="primary" @click="Surface_Form_add">新增</el-button>
-            </el-form-item>
-          </el-form>
-          <el-table :data="SurfaceData" size="mini" height="700">
-            <el-table-column label="#" type="index" />
-            <el-table-column prop="name" label="表面处理" />
-            <el-table-column prop="price" label="单价 mm²/元" />
-            <el-table-column label="操作">
-              <template slot-scope="scope">
-                <el-button type="text" size="mini" @click="Surface_Form_remove(scope.row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-pagination
-            v-if="SurfaceTotal > 1"
-            :current-page="Surface_Form.page"
-            :page-size="Surface_Form.limit"
-            :total="SurfaceTotal"
-            small
-            @current-change="SurfaceTotal_handlePageChange" />
-        </el-card>
-      </el-tab-pane>
-      <!-- 工序设置 -->
-      <el-tab-pane label="工序设置" name="工序设置">
-        <el-card size="mini" shadow="hover">
-          <el-form :inline="true" class="search-form" size="mini">
-            <el-form-item style="float: right">
-              <el-button type="primary" @click="showAddProcessDialogS">新增</el-button>
-            </el-form-item>
-          </el-form>
-          <el-table :data="processData" size="mini" height="700">
-            <el-table-column label="#" type="index" />
-            <el-table-column prop="name" label="工序名称" />
-            <el-table-column prop="code" label="工序代号" />
-            <el-table-column prop="resourceGroup" label="资源组" />
-            <el-table-column prop="price" label="单价 元/小时" />
-            <el-table-column prop="isOutsourced" label="是否委外">
-              <template slot-scope="scope">
-                <el-switch v-model="scope.row.isOutsourced" disabled />
-              </template>
-            </el-table-column>
-            <el-table-column prop="isInspected" label="是否检验">
-              <template slot-scope="scope">
-                <el-switch v-model="scope.row.isInspected" disabled />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作">
-              <template slot-scope="scope">
-                <el-button type="text" size="mini" @click="editProcess(scope.row)">编辑</el-button>
-                <el-button type="text" size="mini" @click="removeProcess(scope.row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-pagination
-            v-if="processTotal > 1"
-            :current-page="processForm.page"
-            :page-size="processForm.limit"
-            :total="processTotal"
-            small
-            @current-change="handleProcessPageChange" />
-        </el-card>
-        <el-dialog :visible.sync="addProcessDialogVisible" title="新增工序设置" width="30%">
-          <el-form ref="addProcessForm" :model="addProcessForm" :rules="addProcessFormRules" label-width="100px">
-            <el-form-item label="工序名称" prop="name">
-              <el-input v-model="addProcessForm.name" placeholder="请输入工序名称" />
-            </el-form-item>
-            <el-form-item label="工序代号" prop="code">
-              <el-input v-model="addProcessForm.code" placeholder="请输入工序代号" />
-            </el-form-item>
-            <el-form-item label="资源组" prop="resourceGroup">
-              <el-input v-model="addProcessForm.resourceGroup" placeholder="请输入资源组" />
-            </el-form-item>
-            <el-form-item label="单价" prop="price">
-              <el-input v-model="addProcessForm.price" placeholder="请输入单价" />
-            </el-form-item>
-            <el-form-item label="是否委外" prop="isOutsourced">
-              <el-switch v-model="addProcessForm.isOutsourced" />
-            </el-form-item>
-            <el-form-item label="是否检验" prop="isInspected">
-              <el-switch v-model="addProcessForm.isInspected" />
-            </el-form-item>
-          </el-form>
-          <div slot="footer" class="dialog-footer">
-            <el-button @click="addProcessDialogVisible = false">取 消</el-button>
-            <el-button type="primary" @click="addProcess">确 定</el-button>
+    <!-- 搜索筛选区域 -->
+    <el-card class="filter-card" shadow="never">
+      <div class="filter-wrapper">
+        <div class="filter-header">
+          <div class="filter-title">
+            <i class="el-icon-search"></i>
+            筛选条件
           </div>
-        </el-dialog>
-      </el-tab-pane>
-    </el-tabs>
+          <div class="filter-controls">
+            <el-button size="mini" icon="el-icon-refresh" @click="handleReset">重置</el-button>
+            <el-button type="primary" size="mini" icon="el-icon-search" @click="handleSearch">搜索</el-button>
+          </div>
+        </div>
+
+        <div class="filter-content">
+          <el-row :gutter="20">
+            <el-col :span="6">
+              <div class="filter-item">
+                <label class="filter-label">物料类型</label>
+                <el-input
+                  v-model="queryParams.name"
+                  placeholder="请输入物料类型名称"
+                  clearable
+                  size="small"
+                  prefix-icon="el-icon-collection-tag"
+                  @keyup.enter.native="handleSearch" />
+              </div>
+            </el-col>
+            <el-col :span="5">
+              <div class="filter-item">
+                <label class="filter-label">类别编码</label>
+                <el-input
+                  v-model="queryParams.code"
+                  placeholder="请输入类别编码"
+                  clearable
+                  size="small"
+                  prefix-icon="el-icon-document"
+                  @keyup.enter.native="handleSearch" />
+              </div>
+            </el-col>
+            <el-col :span="4">
+              <div class="filter-item">
+                <label class="filter-label">状态</label>
+                <el-select v-model="queryParams.status" placeholder="请选择状态" clearable size="small" style="width: 100%">
+                  <el-option label="启用" :value="1" />
+                  <el-option label="禁用" :value="0" />
+                </el-select>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- 数据表格区域 -->
+    <el-card class="table-card" shadow="never">
+      <div class="table-header">
+        <div class="table-info">
+          <span class="table-title">
+            <i class="el-icon-document"></i>
+            物料类型列表
+          </span>
+          <div class="table-stats">
+            <span class="stat-item">
+              总计
+              <strong>{{ pagination.total }}</strong>
+              条
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <el-table
+          v-loading="loading"
+          :data="tableData"
+          stripe
+          border
+          class="modern-table"
+          :header-cell-style="{
+            background: '#f8f9fa',
+            color: '#606266',
+            fontWeight: '600',
+            fontSize: '13px',
+            borderBottom: '1px solid #e4e7ed'
+          }">
+          <el-table-column type="index" label="序号" width="60" align="center" />
+
+          <el-table-column prop="name" label="物料类型" min-width="150" show-overflow-tooltip>
+            <template slot-scope="scope">
+              <div class="type-cell">
+                <i class="el-icon-collection-tag type-icon"></i>
+                <span class="type-name">{{ scope.row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="code" label="类别编码" width="120" show-overflow-tooltip>
+            <template slot-scope="scope">
+              <el-tag type="info" size="mini" effect="plain">{{ scope.row.code }}</el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="unit" label="单位" width="80" align="center">
+            <template slot-scope="scope">
+              <el-tag size="mini" type="success" effect="plain">{{ scope.row.unit }}</el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="codeRule" label="编码规则" min-width="200" show-overflow-tooltip>
+            <template slot-scope="scope">
+              <div class="rule-cell">
+                <i class="el-icon-setting rule-icon"></i>
+                <span class="rule-text">{{ scope.row.codeRule || '暂无规则' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip>
+            <template slot-scope="scope">
+              <span class="description-text">{{ scope.row.description || '暂无描述' }}</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="状态" width="80" align="center">
+            <template slot-scope="scope">
+              <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'" size="mini" effect="dark">
+                {{ scope.row.status === 1 ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="创建时间" width="140" align="center">
+            <template slot-scope="scope">
+              <div class="time-info">
+                <div class="time-date">
+                  {{ scope.row.createTime ? new Date(scope.row.createTime).toLocaleDateString('zh-CN') : '--' }}
+                </div>
+                <div class="time-clock">
+                  {{
+                    scope.row.createTime
+                      ? new Date(scope.row.createTime).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+                      : '--'
+                  }}
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="200" align="center" fixed="right">
+            <template slot-scope="scope">
+              <div class="action-buttons">
+                <el-tooltip content="编辑" placement="top">
+                  <el-button type="primary" icon="el-icon-edit" size="mini" circle @click="handleEdit(scope.row)" />
+                </el-tooltip>
+                <el-tooltip :content="scope.row.status === 1 ? '禁用' : '启用'" placement="top">
+                  <el-button
+                    :type="scope.row.status === 1 ? 'warning' : 'success'"
+                    :icon="scope.row.status === 1 ? 'el-icon-close' : 'el-icon-check'"
+                    size="mini"
+                    circle
+                    @click="handleToggleStatus(scope.row)" />
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button type="danger" icon="el-icon-delete" size="mini" circle @click="handleDelete(scope.row)" />
+                </el-tooltip>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <!-- 分页组件 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          :current-page="pagination.page"
+          :page-sizes="[10, 20, 50, 100]"
+          :page-size="pagination.size"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+          background />
+      </div>
+    </el-card>
+
+    <!-- 新增/编辑弹窗 -->
+    <el-dialog
+      :title="dialogForm.isEdit ? '编辑物料类型' : '新增物料类型'"
+      :visible.sync="dialogForm.visible"
+      width="700px"
+      :close-on-click-modal="false"
+      @close="handleDialogClose"
+      class="modern-dialog">
+      <div class="dialog-content">
+        <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" class="modern-form">
+          <!-- 基本信息 -->
+          <div class="form-section">
+            <div class="section-header">
+              <div class="section-title">
+                <i class="el-icon-info"></i>
+                基本信息
+              </div>
+            </div>
+            <div class="section-content">
+              <el-row :gutter="24">
+                <el-col :span="12">
+                  <el-form-item label="物料类型" prop="name">
+                    <el-input v-model="formData.name" placeholder="请输入物料类型名称">
+                      <template slot="prefix">
+                        <i class="el-icon-collection-tag"></i>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="类别编码" prop="code">
+                    <el-input v-model="formData.code" placeholder="请输入类别编码">
+                      <template slot="prefix">
+                        <i class="el-icon-document"></i>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="24">
+                <el-col :span="12">
+                  <el-form-item label="单位" prop="unit">
+                    <el-input v-model="formData.unit" placeholder="请输入单位">
+                      <template slot="prefix">
+                        <i class="el-icon-collection"></i>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="状态" prop="status">
+                    <el-radio-group v-model="formData.status" class="status-radio">
+                      <el-radio :label="1" class="status-radio-item">
+                        <span class="status-indicator success"></span>
+                        启用
+                      </el-radio>
+                      <el-radio :label="0" class="status-radio-item">
+                        <span class="status-indicator danger"></span>
+                        禁用
+                      </el-radio>
+                    </el-radio-group>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="24">
+                <el-col :span="24">
+                  <el-form-item label="编码规则" prop="codeRule">
+                    <el-input v-model="formData.codeRule" placeholder="请输入编码规则，如：前缀+日期+序号">
+                      <template slot="prefix">
+                        <i class="el-icon-setting"></i>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="24">
+                <el-col :span="24">
+                  <el-form-item label="描述">
+                    <el-input
+                      v-model="formData.description"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="请输入描述信息..."
+                      maxlength="200"
+                      show-word-limit />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </div>
+        </el-form>
+      </div>
+
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogForm.visible = false" icon="el-icon-close">取消</el-button>
+        <el-button @click="resetForm" icon="el-icon-refresh">重置</el-button>
+        <el-button type="primary" :loading="dialogForm.loading" @click="handleSave" icon="el-icon-check">
+          {{ dialogForm.isEdit ? '更新' : '创建' }}
+        </el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import * as materialCategory from '@/api/materialCategory'
-import * as surfaceTreatment from '@/api/surfaceTreatment'
-import * as processSteps from '@/api/processStep'
+import materialCategoryApi from '@/api/materialCategory'
 
-// MaterialType 物料类型
 export default {
-  name: 'Danweishezhi',
+  name: 'MaterialCategoryManage',
   data() {
     return {
-      // //////////////////////////
-      activeName: '物料类型',
-      MaterialType_tableData: [],
-      MaterialType_Form: {
-        name: '',
-        code: '', // 添加类别编码字段
-        unit: '',
-        codeRule: ''
-      },
-      // 表面处理表单
-      SurfaceData: [],
-      SurfaceTotal: '',
-      Surface_Form: {
-        name: '',
-        price: '',
-        page: 1,
-        limit: 15
-      },
+      // 加载状态
+      loading: false,
 
-      MaterialType_searchName: '',
-      MaterialType_currentPage: 1,
-      MaterialType_pageSize: 15,
-      MaterialType_total: 0,
-      MaterialType_totalPages: 0,
-      // 工序设置
-      processData: [],
-      processTotal: 0,
-      processForm: {
-        page: 1,
-        limit: 10
-      },
-      addProcessDialogVisible: false,
-      addProcessForm: {
+      // 查询参数
+      queryParams: {
         name: '',
         code: '',
-        resourceGroup: '',
-        price: '',
-        isOutsourced: false,
-        isInspected: true
+        status: null
       },
-      addProcessFormRules: {
-        name: [{ required: true, message: '请输入工序名称', trigger: 'blur' }],
-        code: [{ required: true, message: '请输入工序代号', trigger: 'blur' }],
-        resourceGroup: [{ required: false, message: '请输入资源组', trigger: 'blur' }],
-        price: [{ required: true, message: '请输入单价', trigger: 'blur' }]
+
+      // 表格数据
+      tableData: [],
+
+      // 分页信息
+      pagination: {
+        page: 1,
+        size: 20,
+        total: 0
+      },
+
+      // 弹窗状态
+      dialogForm: {
+        visible: false,
+        isEdit: false,
+        loading: false
+      },
+
+      // 表单数据
+      formData: {
+        id: null,
+        name: '',
+        code: '',
+        unit: '',
+        codeRule: '',
+        description: '',
+        status: 1
+      },
+
+      // 表单验证规则
+      formRules: {
+        name: [
+          { required: true, message: '请输入物料类型名称', trigger: 'blur' },
+          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+        ],
+        code: [
+          { required: true, message: '请输入类别编码', trigger: 'blur' },
+          { pattern: /^[A-Za-z0-9_-]+$/, message: '编码只能包含字母、数字、下划线和连字符', trigger: 'blur' },
+          { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+        ],
+        unit: [
+          { required: true, message: '请输入单位', trigger: 'blur' },
+          { max: 10, message: '单位长度不能超过 10 个字符', trigger: 'blur' }
+        ],
+        codeRule: [{ max: 100, message: '编码规则长度不能超过 100 个字符', trigger: 'blur' }],
+        status: [{ required: true, message: '请选择状态', trigger: 'change' }]
       }
     }
+  },
+
+  created() {
+    this.loadData()
   },
 
   methods: {
-    // /////////////////////  表面处理 /////////////////////// /
-    async Surface_Form_get() {
-      const res = await surfaceTreatment.getlist(this.Surface_Form)
-      this.SurfaceData = res.data
-      this.SurfaceTotal = res.count
-    },
-    async Surface_Form_add() {
-      if (!this.Surface_Form.name || !this.Surface_Form.price) {
-        this.$message.warning('请填写完整信息')
-        return
-      }
+    // 加载数据
+    async loadData() {
+      this.loading = true
       try {
-        await surfaceTreatment.add(this.Surface_Form)
-        this.$message.success('添加成功')
-        this.Surface_Form.name = ''
-        this.Surface_Form.price = ''
-        this.Surface_Form_get()
+        const params = {
+          page: this.pagination.page,
+          size: this.pagination.size,
+          ...this.queryParams
+        }
+
+        const response = await materialCategoryApi.getList(params)
+        this.tableData = response.data.list || []
+        this.pagination.total = response.data.total || 0
       } catch (error) {
-        this.$message.error('添加失败')
+        this.$message.error('加载数据失败')
+        console.error('Load data error:', error)
+      } finally {
+        this.loading = false
       }
     },
 
-    // /////////////////////  物料类型 /////////////////////// /
-    async MaterialType_search() {
-      try {
-        const res = await materialCategory.getlist({
-          name: this.MaterialType_searchName,
-          page: this.MaterialType_currentPage,
-          limit: this.MaterialType_pageSize
-        })
-        // 根据后端返回的数据结构调整
-        this.MaterialType_tableData = res.data.list || res.data
-        this.MaterialType_total = res.data.total || res.count
-      } catch (error) {
-        this.$message.error('获取数据失败')
-      }
+    // 搜索
+    handleSearch() {
+      this.pagination.page = 1
+      this.loadData()
     },
 
-    async MaterialType_add() {
-      if (!this.MaterialType_Form.name || !this.MaterialType_Form.code) {
-        this.$message.warning('物料类型和类别编码不能为空')
-        return
-      }
-
-      // 检查编码规则是否重复
-      if (this.MaterialType_Form.codeRule) {
-        const existingItem = this.MaterialType_tableData.find((item) => item.codeRule === this.MaterialType_Form.codeRule)
-        if (existingItem) {
-          this.$message.warning(`编码规则 "${this.MaterialType_Form.codeRule}" 已存在，请使用不同的编码规则`)
-          return
-        }
-      }
-
-      try {
-        await materialCategory.add(this.MaterialType_Form)
-        this.$message.success('添加成功')
-        this.MaterialType_Form.name = ''
-        this.MaterialType_Form.code = ''
-        this.MaterialType_Form.unit = ''
-        this.MaterialType_Form.codeRule = ''
-        this.MaterialType_search()
-      } catch (error) {
-        if (error.response && error.response.data && error.response.data.error) {
-          const errorMsg = error.response.data.error
-          if (errorMsg.includes('duplicate key error') && errorMsg.includes('codeRule')) {
-            this.$message.error('编码规则已存在，请使用不同的编码规则')
-          } else if (errorMsg.includes('duplicate key error') && errorMsg.includes('code')) {
-            this.$message.error('类别编码已存在，请使用不同的类别编码')
-          } else {
-            this.$message.error('添加失败：' + error.response.data.message)
-          }
-        } else {
-          this.$message.error('添加失败')
-        }
-      }
-    },
-
-    async MaterialType_edit(row) {
-      // 检查编码规则是否与其他记录重复（排除当前记录）
-      if (row.codeRule) {
-        const existingItem = this.MaterialType_tableData.find((item) => item._id !== row._id && item.codeRule === row.codeRule)
-        if (existingItem) {
-          this.$message.warning(`编码规则 "${row.codeRule}" 已存在，请使用不同的编码规则`)
-          return
-        }
-      }
-
-      try {
-        await materialCategory.put(row._id, {
-          name: row.name,
-          code: row.code,
-          unit: row.unit,
-          codeRule: row.codeRule
-        })
-        this.$message.success('修改成功')
-        this.MaterialType_search()
-      } catch (error) {
-        if (error.response && error.response.data && error.response.data.error) {
-          const errorMsg = error.response.data.error
-          if (errorMsg.includes('duplicate key error') && errorMsg.includes('codeRule')) {
-            this.$message.error('编码规则已存在，请使用不同的编码规则')
-          } else if (errorMsg.includes('duplicate key error') && errorMsg.includes('code')) {
-            this.$message.error('类别编码已存在，请使用不同的类别编码')
-          } else {
-            this.$message.error('修改失败：' + error.response.data.message)
-          }
-        } else {
-          this.$message.error('修改失败')
-        }
-      }
-    },
-
-    async MaterialType_remove(row) {
-      const confirmed = await this.$confirm(`确认删除 ${row.name} 吗？`, '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).catch(() => false)
-      if (confirmed) {
-        try {
-          await materialCategory.deletes(row._id)
-          this.$message.success('删除成功')
-          this.MaterialType_search()
-        } catch (error) {
-          this.$message.error('删除失败')
-        }
-      }
-    },
-
-    MaterialType_handlePageChange(page) {
-      this.MaterialType_currentPage = page
-      this.MaterialType_search()
-    },
-
-    SurfaceTotal_handlePageChange(page) {
-      this.Surface_Form.page = page
-      this.Surface_Form_get()
-    },
-
-    async Surface_Form_remove(row) {
-      const confirmed = await this.$confirm(`确认删除 ${row.name} 吗？`, '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).catch(() => false)
-      if (confirmed) {
-        try {
-          await surfaceTreatment.deletes(row._id)
-          this.$message.success('删除成功')
-          this.Surface_Form_get()
-        } catch (error) {
-          this.$message.error('删除失败')
-        }
-      }
-    },
-
-    // 工序设置
-    async getProcess() {
-      try {
-        const res = await processSteps.get(this.processForm)
-        this.processData = res.data.list || res.data
-        this.processTotal = res.data.total || res.count
-      } catch (error) {
-        this.$message.error('获取工序数据失败')
-      }
-    },
-
-    showAddProcessDialogS() {
-      this.addProcessDialogVisible = true
-      // 重置表单
-      this.addProcessForm = {
+    // 重置
+    handleReset() {
+      this.queryParams = {
         name: '',
         code: '',
-        resourceGroup: '',
-        price: '',
-        isOutsourced: false,
-        isInspected: true
+        status: null
       }
+      this.pagination.page = 1
+      this.loadData()
     },
 
-    async addProcess() {
+    // 显示新增弹窗
+    showAddDialog() {
+      this.dialogForm.isEdit = false
+      this.dialogForm.visible = true
+      this.resetForm()
+    },
+
+    // 编辑
+    handleEdit(row) {
+      this.dialogForm.isEdit = true
+      this.dialogForm.visible = true
+      this.formData = { ...row }
+    },
+
+    // 保存
+    async handleSave() {
       try {
-        await this.$refs.addProcessForm.validate()
-        if (this.addProcessForm._id) {
-          // 编辑工序
-          await processSteps.update(this.addProcessForm._id, this.addProcessForm)
-          this.$message.success('修改成功')
+        await this.$refs.formRef.validate()
+        this.dialogForm.loading = true
+
+        if (this.dialogForm.isEdit) {
+          await materialCategoryApi.update(this.formData.id, this.formData)
+          this.$message.success('更新成功')
         } else {
-          // 新增工序
-          await processSteps.add(this.addProcessForm)
-          this.$message.success('添加成功')
+          await materialCategoryApi.create(this.formData)
+          this.$message.success('创建成功')
         }
-        this.addProcessDialogVisible = false
-        this.getProcess()
+
+        this.dialogForm.visible = false
+        this.loadData()
       } catch (error) {
-        this.$message.error('操作失败')
+        if (error.response?.data?.message) {
+          this.$message.error(error.response.data.message)
+        } else {
+          this.$message.error(this.dialogForm.isEdit ? '更新失败' : '创建失败')
+        }
+        console.error('Save error:', error)
+      } finally {
+        this.dialogForm.loading = false
       }
     },
 
-    async removeProcess(row) {
-      const confirmed = await this.$confirm(`确认删除 ${row.name} 吗？`, '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).catch(() => false)
-      if (confirmed) {
-        try {
-          await processSteps.deletes(row._id)
-          this.$message.success('删除成功')
-          this.getProcess()
-        } catch (error) {
-          this.$message.error('删除失败')
+    // 切换状态
+    async handleToggleStatus(row) {
+      try {
+        await this.$confirm(`确认${row.status === 1 ? '禁用' : '启用'}物料类型"${row.name}"吗？`, '状态切换确认', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+
+        const newStatus = row.status === 1 ? 0 : 1
+        await materialCategoryApi.updateStatus(row.id, newStatus)
+        this.$message.success(`${newStatus === 1 ? '启用' : '禁用'}成功`)
+        row.status = newStatus
+      } catch (error) {
+        if (error !== 'cancel') {
+          this.$message.error('状态更新失败')
+          console.error('Toggle status error:', error)
         }
       }
     },
 
-    async editProcess(row) {
-      // 编辑工序
-      this.addProcessForm = { ...row } // 使用展开运算符避免直接引用
-      this.addProcessDialogVisible = true
+    // 删除
+    async handleDelete(row) {
+      try {
+        await this.$confirm(`确认删除物料类型"${row.name}"吗？`, '确认删除', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+
+        await materialCategoryApi.delete(row.id)
+        this.$message.success('删除成功')
+        this.loadData()
+      } catch (error) {
+        if (error !== 'cancel') {
+          this.$message.error('删除失败')
+          console.error('Delete error:', error)
+        }
+      }
     },
 
-    async handleProcessPageChange(page) {
-      this.processForm.page = page
-      this.getProcess()
+    // 重置表单
+    resetForm() {
+      this.formData = {
+        id: null,
+        name: '',
+        code: '',
+        unit: '',
+        codeRule: '',
+        description: '',
+        status: 1
+      }
+      this.$nextTick(() => {
+        this.$refs.formRef && this.$refs.formRef.clearValidate()
+      })
     },
 
-    // 添加缺失的 handleClick 方法
-    handleClick(tab) {
-      this.activeName = tab.name
+    // 弹窗关闭
+    handleDialogClose() {
+      this.resetForm()
+    },
+
+    // 分页大小改变
+    handleSizeChange(size) {
+      this.pagination.size = size
+      this.pagination.page = 1
+      this.loadData()
+    },
+
+    // 页码改变
+    handlePageChange(page) {
+      this.pagination.page = page
+      this.loadData()
     }
-  },
-
-  // eslint-disable-next-line vue/order-in-components
-  async mounted() {
-    this.Surface_Form_get()
-    this.MaterialType_search()
-    this.getProcess()
   }
 }
 </script>
 
-<style>
-.card-container {
-  /* display: flex;
-  flex-direction: row; */
-  /* 宽度一致 */
-  width: 50%;
-  /* 高度=剩余高度 */
-  height: calc(100vh - 100px);
+<style lang="scss" scoped>
+.material-category-management {
+  padding: 0;
+  background: #f5f7fa;
+  min-height: 100vh;
 
-  /* 子元素垂直居中 */
-  /* align-items: center;
-  justify-content: space-around; */
+  // 页面头部样式
+  .page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px 32px;
+    margin-bottom: 20px;
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header-left {
+      .page-title {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+
+        i {
+          margin-right: 12px;
+          font-size: 32px;
+        }
+      }
+
+      .page-description {
+        font-size: 14px;
+        opacity: 0.9;
+        font-weight: 400;
+      }
+    }
+
+    .header-actions {
+      .el-button {
+        background: #409eff;
+        border-color: #409eff;
+        box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+
+        &:hover {
+          background: #3a8ee6;
+          border-color: #3a8ee6;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+        }
+      }
+    }
+  }
+
+  // 筛选卡片样式
+  .filter-card {
+    margin: 0 20px 20px 20px;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+    .filter-wrapper {
+      .filter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #ebeef5;
+
+        .filter-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #303133;
+          display: flex;
+          align-items: center;
+
+          i {
+            margin-right: 8px;
+            color: #409eff;
+          }
+        }
+
+        .filter-controls {
+          .el-button {
+            margin-left: 8px;
+          }
+        }
+      }
+
+      .filter-content {
+        .filter-item {
+          margin-bottom: 16px;
+
+          .filter-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #606266;
+          }
+        }
+      }
+    }
+  }
+
+  // 表格卡片样式
+  .table-card {
+    margin: 0 20px;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #ebeef5;
+
+      .table-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+
+        .table-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #303133;
+          display: flex;
+          align-items: center;
+
+          i {
+            margin-right: 8px;
+            color: #409eff;
+          }
+        }
+
+        .table-stats {
+          display: flex;
+          gap: 16px;
+
+          .stat-item {
+            font-size: 14px;
+            color: #606266;
+
+            strong {
+              color: #409eff;
+              font-weight: 600;
+              margin: 0 2px;
+            }
+          }
+        }
+      }
+    }
+
+    .table-wrapper {
+      .modern-table {
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #ebeef5;
+
+        // 表格行样式
+        ::v-deep .el-table__row {
+          &:hover > td {
+            background-color: #f8f9ff !important;
+          }
+        }
+
+        // 单元格样式
+        .type-cell {
+          display: flex;
+          align-items: center;
+
+          .type-icon {
+            margin-right: 8px;
+            color: #409eff;
+            font-size: 16px;
+          }
+
+          .type-name {
+            font-weight: 500;
+            color: #303133;
+          }
+        }
+
+        .rule-cell {
+          display: flex;
+          align-items: center;
+
+          .rule-icon {
+            margin-right: 6px;
+            color: #67c23a;
+            font-size: 14px;
+          }
+
+          .rule-text {
+            color: #606266;
+          }
+        }
+
+        .description-text {
+          color: #909399;
+          font-size: 13px;
+        }
+
+        .time-info {
+          .time-date {
+            font-size: 13px;
+            color: #303133;
+            margin-bottom: 2px;
+          }
+
+          .time-clock {
+            font-size: 12px;
+            color: #909399;
+          }
+        }
+
+        .action-buttons {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+
+          .el-button.is-circle {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            transition: all 0.3s ease;
+
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+          }
+        }
+      }
+    }
+
+    .pagination-wrapper {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-end;
+      padding: 20px 0 0 0;
+      border-top: 1px solid #ebeef5;
+    }
+  }
+
+  // 对话框样式
+  .modern-dialog {
+    ::v-deep .el-dialog {
+      border-radius: 12px;
+      overflow: hidden;
+
+      .el-dialog__header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px 24px;
+
+        .el-dialog__title {
+          color: white;
+          font-weight: 600;
+        }
+
+        .el-dialog__close {
+          color: white;
+          font-size: 18px;
+
+          &:hover {
+            color: #f0f0f0;
+          }
+        }
+      }
+
+      .el-dialog__body {
+        padding: 0;
+      }
+    }
+
+    .dialog-content {
+      padding: 24px;
+
+      .modern-form {
+        .form-section {
+          margin-bottom: 24px;
+
+          .section-header {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ebeef5;
+
+            .section-title {
+              font-size: 16px;
+              font-weight: 600;
+              color: #303133;
+              display: flex;
+              align-items: center;
+
+              i {
+                margin-right: 8px;
+                color: #409eff;
+                font-size: 18px;
+              }
+            }
+          }
+
+          .section-content {
+            .el-form-item {
+              margin-bottom: 20px;
+
+              .el-input {
+                ::v-deep .el-input__inner {
+                  border-radius: 6px;
+                  border: 1px solid #dcdfe6;
+                  transition: all 0.3s ease;
+
+                  &:focus {
+                    border-color: #409eff;
+                    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+                  }
+                }
+              }
+
+              .status-radio {
+                .status-radio-item {
+                  margin-right: 20px;
+                  display: flex;
+                  align-items: center;
+
+                  .status-indicator {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    margin-right: 6px;
+
+                    &.success {
+                      background: #67c23a;
+                    }
+
+                    &.danger {
+                      background: #f56c6c;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .dialog-footer {
+      padding: 20px 24px;
+      background: #f8f9fa;
+      border-top: 1px solid #ebeef5;
+      text-align: right;
+
+      .el-button {
+        margin-left: 12px;
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-weight: 500;
+
+        &.el-button--primary {
+          background: #409eff;
+          border-color: #409eff;
+
+          &:hover {
+            background: #3a8ee6;
+            border-color: #3a8ee6;
+          }
+        }
+      }
+    }
+  }
 }
-.card-container > * {
-  margin: 5px 15px;
+
+// 响应式设计
+@media (max-width: 1200px) {
+  .material-category-management {
+    .page-header {
+      .header-content {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+
+        .header-actions {
+          align-self: flex-end;
+        }
+      }
+    }
+
+    .filter-card {
+      margin: 0 10px 20px 10px;
+
+      .filter-content {
+        .el-col {
+          margin-bottom: 10px;
+        }
+      }
+    }
+
+    .table-card {
+      margin: 0 10px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .material-category-management {
+    .page-header {
+      padding: 16px 20px;
+
+      .header-content {
+        .header-left {
+          .page-title {
+            font-size: 24px;
+
+            i {
+              font-size: 28px;
+            }
+          }
+        }
+
+        .header-actions {
+          align-self: stretch;
+
+          .el-button {
+            width: 100%;
+          }
+        }
+      }
+    }
+
+    .filter-card {
+      .filter-content {
+        .el-row {
+          .el-col {
+            width: 100% !important;
+            margin-bottom: 16px;
+          }
+        }
+      }
+    }
+
+    .table-card {
+      .table-wrapper {
+        overflow-x: auto;
+
+        .modern-table {
+          min-width: 800px;
+        }
+      }
+
+      .pagination-wrapper {
+        justify-content: center;
+        padding: 16px 0 0 0;
+      }
+    }
+
+    .modern-dialog {
+      ::v-deep .el-dialog {
+        width: 95% !important;
+        margin: 5vh auto !important;
+      }
+
+      .dialog-content {
+        padding: 16px;
+
+        .section-content {
+          .el-row {
+            .el-col {
+              width: 100% !important;
+              margin-bottom: 12px;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 </style>
